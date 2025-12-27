@@ -470,9 +470,7 @@ class DebateAgent:
         """Clear pending tool info after handling."""
         self._pending_tool_info = None
 
-    def _build_action_context(
-        self, tool_info: GeminiToolInfo | ClaudeToolInfo, target: str
-    ) -> str:
+    def _build_action_context(self, tool_info: CLIToolInfo, target: str) -> str:
         """B55: Build readable action context for history.
 
         Format:

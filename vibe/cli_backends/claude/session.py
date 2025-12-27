@@ -522,6 +522,17 @@ class ClaudeSessionTmux:
         if separator_idx != -1:
             # Extract from separator+1 to confirm_idx
             start_idx = separator_idx + 1
+
+            # IDE fix: If context is just "Opened changes in X", include header before separator
+            context_preview = " ".join(
+                l.strip() for l in lines[start_idx:confirm_idx] if l.strip()
+            )
+            if "Opened changes in" in context_preview:
+                # Find ● header just before separator (check up to 5 lines back)
+                for i in range(separator_idx - 1, max(-1, separator_idx - 6), -1):
+                    if "●" in lines[i]:
+                        start_idx = i
+                        break
         else:
             # Fallback: old behavior - find "Tool use" or last ●
             tool_use_idx = -1
