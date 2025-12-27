@@ -507,3 +507,4 @@ class DebateAgent:
         """Clear conversation history but keep sessions alive."""
         self.messages.clear()
         self.last_seen = {"claude": -1, "gemini": -1}
+        self._action_contexts = []  # B55: Clear stale contexts
