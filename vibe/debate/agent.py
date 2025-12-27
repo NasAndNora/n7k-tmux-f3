@@ -52,6 +52,9 @@ class DebateAgent:
         # Pending confirmation state
         self._pending_confirmation: dict | None = None
         self._pending_tool_info: GeminiToolInfo | ClaudeToolInfo | None = None
+        self._action_contexts: list[
+            str
+        ] = []  # B55: Accumulate diffs for chained commands
 
         # Parsers per AI
         self._gemini_parser = GeminiToolParser()
@@ -385,6 +388,10 @@ class DebateAgent:
 
             # Yield event so app.py creates widget for cmd1
             if self._pending_tool_info:
+                # B55: Accumulate action context for chained commands
+                self._action_contexts.append(
+                    self._build_action_context(self._pending_tool_info, target)
+                )
                 yield CLIToolResultEvent(tool_info=self._pending_tool_info)
 
             # Parse the NEW confirmation (cmd2)
@@ -405,12 +412,31 @@ class DebateAgent:
             )
             content = content.strip()
 
-        if content:
+        # B55: Inject all action contexts into history so other AI sees diffs
+        # Keep UI content separate from history content
+        ui_content = content  # For display
+        history_content = content  # For other AI
+
+        if self._pending_tool_info:
+            self._action_contexts.append(
+                self._build_action_context(self._pending_tool_info, target)
+            )
+
+        if self._action_contexts:
+            actions_text = "\n\n".join(self._action_contexts)
+            history_content = (
+                f"{content}\n\n{actions_text}" if content else actions_text
+            )
+            self._action_contexts = []  # Reset for next chain
+
+        if history_content:
             self.messages.append(
-                Message(role=target, content=content, timestamp=datetime.now())
+                Message(role=target, content=history_content, timestamp=datetime.now())
             )
             self.last_seen[target] = len(self.messages) - 1
-            yield AssistantEvent(content=content)
+
+        if ui_content:
+            yield AssistantEvent(content=ui_content)
 
     def has_pending_confirmation(self) -> bool:
         """Check if there's a pending AI confirmation."""
@@ -442,6 +468,40 @@ class DebateAgent:
     def clear_pending_tool_info(self) -> None:
         """Clear pending tool info after handling."""
         self._pending_tool_info = None
+
+    def _build_action_context(
+        self, tool_info: GeminiToolInfo | ClaudeToolInfo, target: str
+    ) -> str:
+        """B55: Build readable action context for history.
+
+        Format:
+            [GEMINI ACTION: WRITE_FILE /tmp/test.py]
+            + line 1
+            + line 2
+        """
+        lines = [
+            f"[{target.upper()} ACTION: {tool_info.tool_type.upper()} {tool_info.file_path}]"
+        ]
+
+        # Diff lines (cap 50)
+        diff = tool_info.diff_lines[:50]
+        for line_type, line_content in diff:
+            prefix = line_type if line_type in {"+", "-"} else " "
+            lines.append(f"{prefix} {line_content}")
+        if len(tool_info.diff_lines) > 50:
+            lines.append(f"... ({len(tool_info.diff_lines) - 50} more lines)")
+
+        # Shell output (cap 20)
+        if tool_info.shell_output:
+            out = tool_info.shell_output.split("\n")
+            lines.extend(out[:20])
+            if len(out) > 20:
+                lines.append(f"... ({len(out) - 20} more lines)")
+
+        if tool_info.exit_code is not None:
+            lines.append(f"Exit: {tool_info.exit_code}")
+
+        return "\n".join(lines)
 
     def clear_history(self) -> None:
         """Clear conversation history but keep sessions alive."""
