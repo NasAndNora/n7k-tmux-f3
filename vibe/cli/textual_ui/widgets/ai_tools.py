@@ -208,9 +208,3 @@ class CLIToolResultWidget(ToolResultWidget):
         """Re-render when collapsed state changes (Ctrl+O toggle)."""
         await self.remove_children()
         await self.recompose()
-
-
-# Backward compatibility aliases (for existing code)
-AIToolInfo = CLIToolInfo
-AIToolResultMessage = CLIToolResultWidget
-GeminiToolResultMessage = CLIToolResultWidget

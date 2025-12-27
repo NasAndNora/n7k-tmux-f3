@@ -9,8 +9,9 @@ import re
 import types
 from typing import TYPE_CHECKING
 
-from vibe.cli_backends.claude.parser import ClaudeToolInfo, ClaudeToolParser
-from vibe.cli_backends.gemini.parser import GeminiToolInfo, GeminiToolParser
+from vibe.cli.textual_ui.widgets.ai_tools import CLIToolInfo
+from vibe.cli_backends.claude.parser import ClaudeToolParser
+from vibe.cli_backends.gemini.parser import GeminiToolParser
 from vibe.core.config import Backend, ProviderConfig
 from vibe.core.llm.backend.tmux import TmuxBackend
 from vibe.core.types import (
@@ -51,7 +52,7 @@ class DebateAgent:
 
         # Pending confirmation state
         self._pending_confirmation: dict | None = None
-        self._pending_tool_info: GeminiToolInfo | ClaudeToolInfo | None = None
+        self._pending_tool_info: CLIToolInfo | None = None
         self._action_contexts: list[
             str
         ] = []  # B55: Accumulate diffs for chained commands
@@ -454,7 +455,7 @@ class DebateAgent:
             return self._pending_confirmation.get("context")
         return None
 
-    def get_pending_tool_info(self) -> GeminiToolInfo | ClaudeToolInfo | None:
+    def get_pending_tool_info(self) -> CLIToolInfo | None:
         """Get parsed tool info for pending confirmation."""
         return self._pending_tool_info
 
