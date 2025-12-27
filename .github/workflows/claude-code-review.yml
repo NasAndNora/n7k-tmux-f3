@@ -1,0 +1,124 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR: #${{ github.event.pull_request.number }}
+
+            Senior reviewer, 20 years debugging prod failures. Find what WILL break before merge.
+
+            ## Project: Multi-AI Chat
+            Multi-AI orchestration via tmux (Claude, Gemini, others) with human-in-the-loop.
+            User + AIs share same conversation (each AI has own memory). Routes via @tags.
+
+            **Key principles:**
+            - Parsers isolated per AI, not mixed in routing/UI
+            - Use established constants, not hardcoded strings
+            - Tmux streaming uses replace pattern, not append
+
+            ## 🚨 BLOCKING (Request Changes)
+
+            ### Security
+            - User input in regex/eval/exec → injection
+            - Hardcoded secrets, logged credentials
+            - Command injection (shell, tmux send-keys)
+
+            ### Architecture
+            - Violates ARCHITECTURE.md principles
+            - Hardcoded strings vs established constants
+            - Duplicate logic vs reusing existing
+            - Tight coupling (circular imports, shared global state)
+
+            ### Data Loss/Corruption
+            - Race conditions (global state without locks, concurrent writes)
+            - State inconsistency (partial mutation on exception)
+
+            ### Error Handling
+            - Silent failures (`try: except: pass`, ignored errors)
+            - No fallback/retry on recoverable failures
+            - Exception swallowing (catch without re-raise/log)
+            - Invalid states not handled (missing config, service down)
+
+            ### Resource Leaks
+            - File handles/connections not closed (no finally/context manager)
+
+            ### Breaking Changes
+            - Changed API/config/schema without migration
+            - Deleted code without deprecation warning
+            - Breaks existing functionality
+
+            ## ⚠️ SUGGESTIONS (non-blocking)
+
+            ### Performance
+            - Nested loops on large collections
+            - Blocking I/O in main thread
+            - Memory waste (load all vs streaming)
+
+            ### Code Quality
+            - Magic values (hardcoded timeouts, limits, paths)
+            - Dead code, commented code
+            - Confusing names, functions >50 lines
+
+            ### Testability & Debug
+            - Not testable (hardcoded deps, no injection)
+            - Insufficient logs for prod debug
+
+            ### Edge Cases
+            - Empty/null input, Unicode/ANSI codes
+            - Timeouts, network failures, disk full
+            - Concurrent access, out-of-order events
+
+            ## Rules
+
+            1. **Context check** (read if relevant to PR):
+               - BUGS.md - Open bugs (symptoms, causes, files, priority) + fixed bugs history
+               - CHANGELOG.md - Version history with root causes, fixes, architectural decisions
+               - ARCHITECTURE.md - Project structure, routing patterns, where code should live
+            2. Analyze diff: "what breaks if...?" → simulate edge cases, races, injection
+            3. Never judge without verifying code - read files when uncertain
+            4. Never invent risks without proof - say "unsure" if doubt
+
+            ## Output (gh pr comment)
+
+            Summary (2 lines) → 🚨 Blocking (`file:line` - problem, impact, fix) → ⚠️ Suggestions (`file:line` - improvement) → ✅ Positive → Verdict (✅ Approve | ⚠️ Request Changes | 💬 Comment)
+
+            **Principle:** Murphy's Law - if it CAN break, it WILL break in prod. Find it now.
+
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+          claude_args: '--model claude-opus-4-5-20251101 --allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'

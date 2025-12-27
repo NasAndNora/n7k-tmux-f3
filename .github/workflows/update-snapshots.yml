@@ -1,0 +1,61 @@
+name: Update Snapshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to update snapshots on'
+        required: true
+        default: 'main'
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  update-snapshots:
+    name: Update Snapshots
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Install uv with caching
+        uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Sync dependencies
+        run: uv sync --all-extras
+
+      - name: Update snapshots
+        run: uv run pytest tests/snapshots --snapshot-update
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code tests/snapshots/__snapshots__/ || echo "changes=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tests/snapshots/__snapshots__/
+          git commit -m "chore: Update snapshot SVGs from CI
+
+          Generated on Ubuntu runner to ensure consistency.
+
+          [skip ci]"
+          git push

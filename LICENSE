@@ -1,0 +1,11 @@
+SPDX-License-Identifier: AGPL-3.0-only
+
+Copyright (c) 2025 NasAndNora
+
+This project is licensed under the GNU Affero General Public License v3.0.
+See https://www.gnu.org/licenses/agpl-3.0.html for the full license text.
+
+---
+
+This project is a fork of Mistral Vibe (https://github.com/mistralai/vibe)
+Original work Copyright (c) 2025 Mistral AI, licensed under Apache-2.0.

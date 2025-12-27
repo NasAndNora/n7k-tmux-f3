@@ -1,0 +1,15 @@
+[default]
+extend-ignore-re = ["(?m)^.*(#|//)\\s*typos:disable-line$", "datas"]
+
+[files]
+extend-exclude = ["UPSTREAM_SYNC.md", "CHANGELOG.md", "BUGS.md", "NOTES.md", "ARCHITECTURE.md", "FILES.md"]
+
+[default.extend-words]
+iterm = "iterm"
+ITERM = "ITERM"
+# French words in docs
+classe = "classe"
+Classe = "Classe"
+explicite = "explicite"
+raison = "raison"
+Raison = "Raison"
