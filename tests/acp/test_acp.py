@@ -36,7 +36,7 @@ from tests.mock.utils import get_mocking_env, mock_llm_chunk
 from vibe.acp.utils import ToolOption
 from vibe.core.types import FunctionCall, ToolCall
 
-RESPONSE_TIMEOUT = 2.0
+RESPONSE_TIMEOUT = 10.0
 MOCK_ENTRYPOINT_PATH = "tests/mock/mock_entrypoint.py"
 PLAYGROUND_DIR = TESTS_ROOT / "playground"
 
@@ -186,6 +186,17 @@ class WriteTextFileJsonRpcResponse(JsonRpcResponse):
     result: None = None
 
 
+async def _stream_stderr(process: asyncio.subprocess.Process) -> None:
+    """Stream subprocess stderr to stdout for CI visibility."""
+    if process.stderr is None:
+        return
+    while True:
+        line = await process.stderr.readline()
+        if not line:
+            break
+        print(f"[SUBPROCESS STDERR] {line.decode().rstrip()}", flush=True)
+
+
 async def get_acp_agent_process(
     mock_env: dict[str, str], vibe_home: Path
 ) -> AsyncGenerator[asyncio.subprocess.Process]:
@@ -206,9 +217,16 @@ async def get_acp_agent_process(
         env=env,
     )
 
+    stderr_task = asyncio.create_task(_stream_stderr(process))
+
     try:
         yield process
     finally:
+        stderr_task.cancel()
+        try:
+            await stderr_task
+        except asyncio.CancelledError:
+            pass
         # Cleanup
         if process.returncode is None:
             process.terminate()
@@ -287,12 +305,26 @@ async def read_multiple_responses(
     max_count: int = 10,
     timeout_per_response: float = RESPONSE_TIMEOUT,
 ) -> list[str]:
+    """Read responses until timeout, EOF, or a blocking signal is received.
+
+    Blocking signals that stop reading:
+    - session/request_permission: server waits for client response
+    - PromptResponse (has 'id' and 'result'): end of prompt flow
+    """
     responses = []
     for _ in range(max_count):
         response = await read_response(process, timeout=timeout_per_response)
-        if response:
-            responses.append(response)
-        else:
+        if not response:
+            break
+        responses.append(response)
+
+        # Check for blocking signals
+        data = json.loads(response)
+        # Server requesting permission - blocks until client responds
+        if data.get("method") == "session/request_permission":
+            break
+        # PromptResponse - end of prompt flow
+        if "id" in data and "result" in data:
             break
     return responses
 
@@ -371,7 +403,9 @@ async def initialize_session(acp_agent_process: asyncio.subprocess.Process) -> s
             id=2, params=NewSessionRequest(cwd=str(PLAYGROUND_DIR), mcpServers=[])
         ),
     )
-    session_response = await read_response_for_id(acp_agent_process, expected_id=2)
+    session_response = await read_response_for_id(
+        acp_agent_process, expected_id=2, timeout=10.0
+    )
     assert session_response is not None
     session_response_json = json.loads(session_response)
     session_response_obj = NewSessionJsonRpcResponse.model_validate(

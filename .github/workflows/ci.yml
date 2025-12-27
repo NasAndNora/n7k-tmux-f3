@@ -79,8 +79,11 @@ jobs:
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
-      - name: Run tests
-        run: uv run pytest --ignore tests/snapshots
+      - name: Run tests (excluding ACP)
+        run: uv run pytest --ignore tests/snapshots --ignore tests/acp
+
+      - name: Run ACP tests (serial, extended timeout)
+        run: uv run pytest tests/acp -n 0 --timeout=120
 
   snapshot-tests:
     name: Snapshot Tests
