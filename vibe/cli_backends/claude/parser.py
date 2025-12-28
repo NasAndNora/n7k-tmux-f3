@@ -8,18 +8,10 @@ Note: Claude CLI uses same box format (╭─│╰) as Gemini.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from vibe.cli.textual_ui.widgets.ai_tools import AIToolInfo
-
-
-@dataclass
-class ClaudeToolInfo(AIToolInfo):
-    """Information extracted from a Claude tool box."""
-
-    pass  # All fields inherited from AIToolInfo
+from vibe.cli.textual_ui.widgets.ai_tools import CLIToolInfo
 
 
 class ClaudeToolParser:
@@ -90,7 +82,7 @@ class ClaudeToolParser:
 
     def parse(
         self, raw_output: str, debug: bool = False
-    ) -> tuple[str, ClaudeToolInfo | None]:
+    ) -> tuple[str, CLIToolInfo | None]:
         """Parse Claude output and extract tool info.
 
         Handles two formats:
@@ -137,7 +129,7 @@ class ClaudeToolParser:
                 f.write("=== END PREPROCESSED ===\n")
 
         text_lines: list[str] = []
-        tool_info: ClaudeToolInfo | None = None
+        tool_info: CLIToolInfo | None = None
 
         # Track header found outside box (Claude's actual format)
         pending_header: tuple[str, str, str] | None = None
@@ -173,7 +165,7 @@ class ClaudeToolParser:
                 # Next line is the command, line after is description
                 command = lines[i + 1].strip() if i + 1 < len(lines) else ""
                 description = lines[i + 2].strip() if i + 2 < len(lines) else ""
-                tool_info = ClaudeToolInfo(
+                tool_info = CLIToolInfo(
                     tool_type="shell",
                     file_path=command,  # For shell, file_path holds the command
                     description=description,
@@ -242,7 +234,7 @@ class ClaudeToolParser:
 
                         is_new_file = tool_type == "write_file"
                         diff_lines = self._extract_diff_from_box(box_lines, is_new_file)
-                        tool_info = ClaudeToolInfo(
+                        tool_info = CLIToolInfo(
                             tool_type=tool_type,
                             file_path=file_path,
                             description=desc,
@@ -276,7 +268,7 @@ class ClaudeToolParser:
                 diff_lines = self._extract_diff_from_lines(
                     diff_content_lines, is_new_file
                 )
-                tool_info = ClaudeToolInfo(
+                tool_info = CLIToolInfo(
                     tool_type=tool_type,
                     file_path=file_path,
                     description=desc,
@@ -300,7 +292,7 @@ class ClaudeToolParser:
             # Try to extract diff lines from text_lines (lines after header, no box)
             is_new_file = tool_type == "write_file"
             diff_lines = self._extract_diff_from_lines(text_lines, is_new_file)
-            tool_info = ClaudeToolInfo(
+            tool_info = CLIToolInfo(
                 tool_type=tool_type,
                 file_path=file_path,
                 description=desc,
@@ -463,11 +455,11 @@ class ClaudeToolParser:
 
         return diff_lines
 
-    def _parse_box(self, box_lines: list[str]) -> ClaudeToolInfo | None:
-        """Parse box content and create ClaudeToolInfo.
+    def _parse_box(self, box_lines: list[str]) -> CLIToolInfo | None:
+        """Parse box content and create CLIToolInfo.
 
         Returns:
-            ClaudeToolInfo if this is a recognized tool box, None otherwise.
+            CLIToolInfo if this is a recognized tool box, None otherwise.
         """
         if not box_lines:
             return None
@@ -514,7 +506,7 @@ class ClaudeToolParser:
 
         # Only return if we found a recognized tool
         if tool_type and file_path:
-            return ClaudeToolInfo(
+            return CLIToolInfo(
                 tool_type=tool_type,
                 file_path=file_path,
                 description=description,
@@ -523,8 +515,8 @@ class ClaudeToolParser:
 
         return None
 
-    def to_search_replace_format(self, info: AIToolInfo) -> str:
-        """Convert ClaudeToolInfo to Vibe's search/replace format.
+    def to_search_replace_format(self, info: CLIToolInfo) -> str:
+        """Convert CLIToolInfo to Vibe's search/replace format.
 
         The format expected by SearchReplaceRenderer is:
             <<<<<<< SEARCH
@@ -568,8 +560,8 @@ class ClaudeToolParser:
 {replace_content}
 >>>>>>> REPLACE"""
 
-    def to_raw_context(self, info: AIToolInfo) -> str:
-        """Convert ClaudeToolInfo to raw text for fallback display.
+    def to_raw_context(self, info: CLIToolInfo) -> str:
+        """Convert CLIToolInfo to raw text for fallback display.
 
         Used when we can't render as a proper diff.
 

@@ -6,18 +6,10 @@ to enable proper rendering via Vibe's SearchReplaceRenderer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from vibe.cli.textual_ui.widgets.ai_tools import AIToolInfo
-
-
-@dataclass
-class GeminiToolInfo(AIToolInfo):
-    """Information extracted from a Gemini tool box."""
-
-    pass  # All fields inherited from AIToolInfo
+from vibe.cli.textual_ui.widgets.ai_tools import CLIToolInfo
 
 
 class GeminiToolParser:
@@ -80,7 +72,7 @@ class GeminiToolParser:
 
     def parse(
         self, raw_output: str, debug: bool = False
-    ) -> tuple[str, GeminiToolInfo | None]:
+    ) -> tuple[str, CLIToolInfo | None]:
         """Parse Gemini output and extract tool info.
 
         Handles two formats:
@@ -127,7 +119,7 @@ class GeminiToolParser:
                 f.write("=== END PREPROCESSED ===\n")
 
         text_lines: list[str] = []
-        tool_info: GeminiToolInfo | None = None
+        tool_info: CLIToolInfo | None = None
 
         # Track header found outside box (Gemini's actual format)
         pending_header: tuple[str, str, str] | None = None
@@ -170,7 +162,7 @@ class GeminiToolParser:
                         tool_type, file_path, desc = pending_header
                         is_new_file = tool_type == "write_file"
                         diff_lines = self._extract_diff_from_box(box_lines, is_new_file)
-                        tool_info = GeminiToolInfo(
+                        tool_info = CLIToolInfo(
                             tool_type=tool_type,
                             file_path=file_path,
                             description=desc,
@@ -188,7 +180,7 @@ class GeminiToolParser:
             # Try to extract diff lines from text_lines (lines after header, no box)
             is_new_file = tool_type == "write_file"
             diff_lines = self._extract_diff_from_lines(text_lines, is_new_file)
-            tool_info = GeminiToolInfo(
+            tool_info = CLIToolInfo(
                 tool_type=tool_type,
                 file_path=file_path,
                 description=desc,
@@ -302,11 +294,11 @@ class GeminiToolParser:
 
         return diff_lines
 
-    def _parse_box(self, box_lines: list[str]) -> GeminiToolInfo | None:
-        """Parse box content and create GeminiToolInfo.
+    def _parse_box(self, box_lines: list[str]) -> CLIToolInfo | None:
+        """Parse box content and create CLIToolInfo.
 
         Returns:
-            GeminiToolInfo if this is a recognized tool box, None otherwise.
+            CLIToolInfo if this is a recognized tool box, None otherwise.
         """
         if not box_lines:
             return None
@@ -353,7 +345,7 @@ class GeminiToolParser:
 
         # Only return if we found a recognized tool
         if tool_type and file_path:
-            return GeminiToolInfo(
+            return CLIToolInfo(
                 tool_type=tool_type,
                 file_path=file_path,
                 description=description,
@@ -362,8 +354,8 @@ class GeminiToolParser:
 
         return None
 
-    def to_search_replace_format(self, info: AIToolInfo) -> str:
-        """Convert GeminiToolInfo to Vibe's search/replace format.
+    def to_search_replace_format(self, info: CLIToolInfo) -> str:
+        """Convert CLIToolInfo to Vibe's search/replace format.
 
         The format expected by SearchReplaceRenderer is:
             <<<<<<< SEARCH
@@ -407,8 +399,8 @@ class GeminiToolParser:
 {replace_content}
 >>>>>>> REPLACE"""
 
-    def to_raw_context(self, info: AIToolInfo) -> str:
-        """Convert GeminiToolInfo to raw text for fallback display.
+    def to_raw_context(self, info: CLIToolInfo) -> str:
+        """Convert CLIToolInfo to raw text for fallback display.
 
         Used when we can't render as a proper diff.
 

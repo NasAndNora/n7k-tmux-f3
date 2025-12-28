@@ -595,6 +595,17 @@ class VibeApp(App):
                 content = parser.to_raw_context(tool_info)
             else:
                 content = parser.to_search_replace_format(tool_info)
+                # IDE fix: If diff is just "Opened changes in X", show it as description
+                if "Opened changes in" in content and content.count("\n") <= 5:
+                    raw_context = (
+                        self._debate_agent.get_pending_confirmation_context() or ""
+                    )
+                    if "Opened changes in" in raw_context:
+                        tool_args = {
+                            "file_path": tool_info.file_path,
+                            "content": raw_context,
+                        }
+                        return tool_name, tool_args
             tool_args = {"file_path": tool_info.file_path, "content": content}
         else:
             # Fallback: no parsed info - show raw context from confirmation
