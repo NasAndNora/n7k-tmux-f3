@@ -3,6 +3,8 @@
 Raw outputs captured from live Claude/Gemini CLI sessions.
 """
 
+from __future__ import annotations
+
 from tests.cli_backends.fixtures.claude_outputs import (
     BASH_ERROR_EXIT_CODE,
     BASH_ERROR_MULTILINE,
@@ -31,30 +33,30 @@ from tests.cli_backends.fixtures.gemini_outputs import (
 )
 
 __all__ = [
-    # Claude - parse_tool_result()
-    "BASH_SUCCESS",
     "BASH_ERROR_EXIT_CODE",
     "BASH_ERROR_MULTILINE",
     "BASH_MULTILINE_OUTPUT",
     "BASH_MULTIPLE_TOOLS",
-    "NO_BASH_TOOL",
-    # Claude - parse()
-    "WRITE_FILE_CREATE",
-    "EDIT_FILE_UPDATE",
-    "TOOL_BOX_FORMAT",
-    "READ_TOOL",
+    # Claude - parse_tool_result()
+    "BASH_SUCCESS",
     "DELETE_TOOL",
-    # Gemini - parse_tool_result()
-    "SHELL_EXIT_CODE",
-    "SHELL_ERROR_NO_EXIT_CODE_B66",
-    "SHELL_WITH_MARKER",
+    "EDIT_COMPLETED",
+    "EDIT_FILE_UPDATE",
+    "HEADER_OUTSIDE_BOX",
+    "NO_BASH_TOOL",
     "NO_SHELL_TOOL",
+    "READFILE_TOOL",
+    "READ_TOOL",
+    "RESPONSE_WITH_MARKER",
     # Gemini - parse()
     "SHELL_CONFIRMATION_PENDING",
-    "WRITEFILE_CONFIRMATION",
-    "RESPONSE_WITH_MARKER",
-    "EDIT_COMPLETED",
-    "READFILE_TOOL",
+    "SHELL_ERROR_NO_EXIT_CODE_B66",
+    # Gemini - parse_tool_result()
+    "SHELL_EXIT_CODE",
     "SHELL_SUCCESS",
-    "HEADER_OUTSIDE_BOX",
+    "SHELL_WITH_MARKER",
+    "TOOL_BOX_FORMAT",
+    "WRITEFILE_CONFIRMATION",
+    # Claude - parse()
+    "WRITE_FILE_CREATE",
 ]

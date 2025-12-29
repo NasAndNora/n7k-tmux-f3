@@ -18,6 +18,8 @@ Unused fixtures (kept as reserve for future bugs):
 # =============================================================================
 
 # Bash success (exit_code=None implicit = success)
+from __future__ import annotations
+
 BASH_SUCCESS = """● Bash(command="echo hello")
   ⎿  hello
 """
