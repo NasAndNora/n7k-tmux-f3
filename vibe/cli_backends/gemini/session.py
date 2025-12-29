@@ -344,11 +344,19 @@ class GeminiSessionTmux:
             ):
                 # Extract result before confirmation (for chained commands)
                 prior_result = self._extract_response(output, responses_before - 1)
+                # Parse structured data (align with Claude)
+                prior_exit_code, prior_shell_output = (
+                    self._parser.parse_tool_result(prior_result)
+                    if prior_result
+                    else (None, None)
+                )
                 return ParsedConfirmation(
                     context=self._extract_confirmation_context(output),
                     prior_result=ParsedResponse(content=prior_result)
                     if prior_result
                     else None,
+                    prior_exit_code=prior_exit_code,
+                    prior_shell_output=prior_shell_output,
                 )
 
             if "Type your message" in output:
