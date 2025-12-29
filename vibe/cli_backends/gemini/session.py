@@ -62,7 +62,7 @@ class GeminiSessionTmux:
         prompt: str,
         timeout: int = 120,
         on_update: Callable[[str], Any] | None = None,
-    ) -> str | dict:
+    ) -> str | ParsedConfirmation:
         try:
             check = subprocess.run(
                 ["tmux", "has-session", "-t", self.session_name], capture_output=True
@@ -313,7 +313,7 @@ class GeminiSessionTmux:
 
     def wait_response(
         self, timeout: int = 120, on_update: Callable[[str], Any] | None = None
-    ) -> str | dict:
+    ) -> ParsedResponse | ParsedConfirmation:
         start_time = time.time()
         spinners = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         last_partial = ""

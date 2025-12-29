@@ -65,7 +65,7 @@ class ClaudeSessionTmux:
         prompt: str,
         timeout: int = 120,
         on_update: Callable[[str], Any] | None = None,
-    ) -> str | dict[str, str]:
+    ) -> str | ParsedConfirmation:
         try:
             check = subprocess.run(
                 ["tmux", "has-session", "-t", self.session_name], capture_output=True
@@ -213,7 +213,7 @@ class ClaudeSessionTmux:
 
                 if has_confirmation:
                     return ParsedConfirmation(
-                        context=self._extract_confirmation_context(output),
+                        context=self._extract_confirmation_context(output)
                     )
 
                 # Detect end: prompt visible + no spinner
@@ -513,7 +513,7 @@ class ClaudeSessionTmux:
 
     def wait_response(
         self, timeout: int = 120, on_update: Callable[[str], Any] | None = None
-    ) -> str | dict:
+    ) -> ParsedResponse | ParsedConfirmation:
         start_time = time.time()
         last_marker_line = ""  # B35 fix: track marker content (not index) across polls
         last_marker_count = (
@@ -587,7 +587,9 @@ class ClaudeSessionTmux:
 
                 return ParsedConfirmation(
                     context=self._extract_confirmation_context(output),
-                    prior_result=ParsedResponse(content=prior_result) if prior_result else None,
+                    prior_result=ParsedResponse(content=prior_result)
+                    if prior_result
+                    else None,
                     prior_exit_code=prior_exit_code,
                     prior_shell_output=prior_shell_output,
                 )

@@ -3,12 +3,13 @@
 Tests parse_tool_result() in parser.py.
 """
 
+from __future__ import annotations
+
 import pytest
 
 from vibe.cli_backends.claude.parser import ClaudeToolParser
 
-
-# Fixture: Bash tool success (exit_code=None implicite = success)
+# Fixture: Bash tool success (exit_code=None implicit = success)
 FIXTURE_BASH_SUCCESS = """
 ● Bash(command="echo hello")
   ⎿  hello
