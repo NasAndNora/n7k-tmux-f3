@@ -7,6 +7,9 @@ import subprocess
 import time
 from typing import Any
 
+from vibe.cli_backends.claude.parser import ClaudeToolParser
+from vibe.cli_backends.models import ParsedConfirmation, ParsedResponse
+
 
 class ClaudeSessionTmux:
     def __init__(
@@ -14,6 +17,7 @@ class ClaudeSessionTmux:
     ) -> None:
         self.session_name = session_name
         self.model = model
+        self._parser = ClaudeToolParser()
 
     def start(self) -> None:
         subprocess.run(
@@ -205,10 +209,9 @@ class ClaudeSessionTmux:
                             f.write(f"{i}: {line!r}\n")
 
                 if has_confirmation:
-                    return {
-                        "type": "confirmation",
-                        "context": self._extract_confirmation_context(output),
-                    }
+                    return ParsedConfirmation(
+                        context=self._extract_confirmation_context(output),
+                    )
 
                 # Detect end: prompt visible + no spinner
                 # Claude spinner always starts with ✻ (unicode) - unique marker
@@ -242,73 +245,6 @@ class ClaudeSessionTmux:
             return "❌ tmux not found. Install: sudo apt install tmux"
         except Exception as e:
             return f"❌ Error: {e!s}"
-
-    def _extract_first_tool_result(self, raw: str) -> tuple[int | None, str | None]:
-        """Extract exit_code and output from the first completed Bash tool in buffer.
-
-        Used for chained commands and final response extraction.
-
-        Claude format (error):
-            ● Bash(command)
-              ⎿  Error: Exit code 1
-                 [stderr line]
-
-        Claude format (success):
-            ● Bash(command)
-              ⎿  output line
-
-        Note: Leading whitespace in error output may be lost during parsing.
-        This is a known limitation accepted for parser safety.
-
-        Returns:
-            tuple: (exit_code, shell_output) or (None, None) if not found
-        """
-        lines = raw.strip().split("\n")
-        exit_code = None
-        shell_output_lines = []
-        in_tool_result = False
-        found_first_tool = False
-
-        for line in lines:
-            stripped = line.strip()
-
-            # Find Bash tool
-            if re.match(r"^●\s*Bash\(", stripped):
-                if found_first_tool:
-                    break  # 2nd tool = stop
-                found_first_tool = True
-                continue
-
-            # After first tool, look for result block (⎿)
-            if found_first_tool and stripped.startswith("⎿"):
-                in_tool_result = True
-                # Check for exit code (error case)
-                exit_match = re.search(r"Error: Exit code (\d+)", stripped)
-                if exit_match:
-                    exit_code = int(exit_match.group(1))
-                else:
-                    # Success case - content is inline after ⎿
-                    inline_content = re.sub(r"^⎿\s*", "", stripped)
-                    if inline_content:
-                        shell_output_lines.append(inline_content)
-                continue
-
-            # Collect stderr lines (5+ spaces indent for error case)
-            if in_tool_result:
-                # Stop conditions
-                if (
-                    not stripped
-                    or stripped.startswith("●")
-                    or stripped.startswith(">")
-                    or stripped.startswith("─")
-                ):
-                    break
-                # 5 spaces = content under ⎿ Error line
-                if line.startswith("     "):
-                    shell_output_lines.append(stripped)
-
-        shell_output = "\n".join(shell_output_lines) if shell_output_lines else None
-        return (exit_code, shell_output)
 
     def _extract_response(
         self, raw: str, skip_count: int = 0, prev_text_idx: int = -1
@@ -643,16 +579,15 @@ class ClaudeSessionTmux:
                 prior_shell_output = None
                 if not prior_result:
                     prior_exit_code, prior_shell_output = (
-                        self._extract_first_tool_result(output)
+                        self._parser.parse_tool_result(output)
                     )
 
-                return {
-                    "type": "confirmation",
-                    "context": self._extract_confirmation_context(output),
-                    "prior_result": prior_result,
-                    "prior_exit_code": prior_exit_code,
-                    "prior_shell_output": prior_shell_output,
-                }
+                return ParsedConfirmation(
+                    context=self._extract_confirmation_context(output),
+                    prior_result=ParsedResponse(content=prior_result) if prior_result else None,
+                    prior_exit_code=prior_exit_code,
+                    prior_shell_output=prior_shell_output,
+                )
 
             # Detect end: same logic as ask() - prompt visible + no spinner
             has_spinner = "✻" in output
@@ -668,20 +603,14 @@ class ClaudeSessionTmux:
 
             if prompt_ready and not has_spinner:
                 final_content, _ = self._extract_response(output, 0)
-                exit_code, shell_output = self._extract_first_tool_result(output)
-                return {
-                    "type": "response",
-                    "content": final_content,
-                    "exit_code": exit_code,
-                    "shell_output": shell_output,
-                }
+                exit_code, shell_output = self._parser.parse_tool_result(output)
+                return ParsedResponse(
+                    content=final_content,
+                    exit_code=exit_code,
+                    shell_output=shell_output,
+                )
 
-        return {
-            "type": "response",
-            "content": "⚠️ Timeout",
-            "exit_code": None,
-            "shell_output": None,
-        }
+        return ParsedResponse(content="⚠️ Timeout")
 
     def close(self) -> None:
         subprocess.run(["tmux", "send-keys", "-t", self.session_name, "/exit", "Enter"])

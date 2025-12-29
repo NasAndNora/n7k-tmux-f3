@@ -70,6 +70,41 @@ class GeminiToolParser:
         normalized = raw_type.lower()
         return self.TOOL_TYPE_MAP.get(normalized, normalized)
 
+    def parse_tool_result(self, content: str) -> tuple[int | None, str | None]:
+        """Extract exit_code and shell_output from Gemini response content.
+
+        Gemini format uses markers injected by _extract_response():
+        - __SHELL_OUTPUT__:... contains the shell output
+        - Command exited with code: X contains exit code
+
+        Args:
+            content: Response content (may contain __SHELL_OUTPUT__ marker).
+
+        Returns:
+            tuple: (exit_code, shell_output) or (None, None) if not found.
+        """
+        exit_code = None
+        shell_output = None
+
+        if not isinstance(content, str):
+            return (None, None)
+
+        # Extract exit code
+        exit_match = self.EXIT_CODE_PATTERN.search(content)
+        if exit_match:
+            exit_code = int(exit_match.group(1))
+
+        # Extract shell output from marker
+        output_match = re.search(
+            r"__SHELL_OUTPUT__:(.+?)(?=Command exited|$)",
+            content,
+            re.DOTALL,
+        )
+        if output_match:
+            shell_output = output_match.group(1).strip()
+
+        return (exit_code, shell_output)
+
     def parse(
         self, raw_output: str, debug: bool = False
     ) -> tuple[str, CLIToolInfo | None]:

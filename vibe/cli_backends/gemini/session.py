@@ -7,10 +7,14 @@ import subprocess
 import time
 from typing import Any
 
+from vibe.cli_backends.gemini.parser import GeminiToolParser
+from vibe.cli_backends.models import ParsedConfirmation, ParsedResponse
+
 
 class GeminiSessionTmux:
     def __init__(self, session_name: str = "gemini_session") -> None:
         self.session_name = session_name
+        self._parser = GeminiToolParser()
 
     def _capture_pane(self, lines: int = 500) -> str:
         """Capture tmux pane content (plain text, no ANSI)."""
@@ -117,10 +121,9 @@ class GeminiSessionTmux:
                     logging.debug(
                         "B44: Gemini confirmation detected, returning to agent"
                     )
-                    return {
-                        "type": "confirmation",
-                        "context": self._extract_confirmation_context(output),
-                    }
+                    return ParsedConfirmation(
+                        context=self._extract_confirmation_context(output),
+                    )
 
                 responses_now = output.count("✦") + output.count("✧")
 
@@ -337,11 +340,10 @@ class GeminiSessionTmux:
             ):
                 # Extract result before confirmation (for chained commands)
                 prior_result = self._extract_response(output, responses_before - 1)
-                return {
-                    "type": "confirmation",
-                    "context": self._extract_confirmation_context(output),
-                    "prior_result": prior_result,
-                }
+                return ParsedConfirmation(
+                    context=self._extract_confirmation_context(output),
+                    prior_result=ParsedResponse(content=prior_result) if prior_result else None,
+                )
 
             if "Type your message" in output:
                 if (
@@ -349,41 +351,20 @@ class GeminiSessionTmux:
                     and "esc to cancel" not in output
                 ):
                     content = self._extract_response(output, responses_before - 1)
-                    # Parse structured data from content (already extracted by _extract_response)
-                    exit_code = None
-                    shell_output = None
+                    # Parse structured data from content (uses parser)
+                    exit_code, shell_output = self._parser.parse_tool_result(content)
+                    # Clean content (remove markers)
                     if isinstance(content, str):
-                        # Extract exit code
-                        exit_match = re.search(
-                            r"Command exited with code:\s*(\d+)", content
-                        )
-                        if exit_match:
-                            exit_code = int(exit_match.group(1))
-                        # Extract shell output from marker
-                        output_match = re.search(
-                            r"__SHELL_OUTPUT__:(.+?)(?=Command exited|$)",
-                            content,
-                            re.DOTALL,
-                        )
-                        if output_match:
-                            shell_output = output_match.group(1).strip()
-                        # Clean content (remove markers)
                         content = re.sub(
                             r"__SHELL_OUTPUT__:.*", "", content, flags=re.DOTALL
                         ).strip()
-                    return {
-                        "type": "response",
-                        "content": content,
-                        "exit_code": exit_code,
-                        "shell_output": shell_output,
-                    }
+                    return ParsedResponse(
+                        content=content,
+                        exit_code=exit_code,
+                        shell_output=shell_output,
+                    )
 
-        return {
-            "type": "response",
-            "content": "⚠️ Timeout",
-            "exit_code": None,
-            "shell_output": None,
-        }
+        return ParsedResponse(content="⚠️ Timeout")
 
     def close(self) -> None:
         subprocess.run(["tmux", "send-keys", "-t", self.session_name, "/exit", "Enter"])
