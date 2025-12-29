@@ -6,6 +6,11 @@ Source: tmux capture-pane from live Claude CLI sessions
 These fixtures test the PUBLIC API of ClaudeToolParser:
 - parse_tool_result(raw) -> (exit_code, shell_output)
 - parse(raw_output) -> (text, CLIToolInfo | None)
+
+Unused fixtures (kept as reserve for future bugs):
+- TOOL_BOX_FORMAT: ╭─╮ format, covered by Gemini tests using same structure
+- READ_TOOL: Read doesn't affect Ctrl+O widget (no diff), out of scope
+- DELETE_TOOL: Delete not priority, no related bug
 """
 
 # =============================================================================

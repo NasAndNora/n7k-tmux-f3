@@ -6,6 +6,9 @@ Source: tmux capture-pane from live Gemini CLI sessions
 These fixtures test the PUBLIC API of GeminiToolParser:
 - parse_tool_result(content) -> (exit_code, shell_output)
 - parse(raw_output) -> (text, CLIToolInfo | None)
+
+Unused fixtures (kept as reserve for future bugs):
+- HEADER_OUTSIDE_BOX: Alternative format, covered by WRITEFILE_CONFIRMATION
 """
 
 # =============================================================================
