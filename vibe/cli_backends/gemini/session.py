@@ -23,6 +23,7 @@ class GeminiSessionTmux:
             ["tmux", "kill-session", "-t", self.session_name], capture_output=True
         )
         # B49: Use gemini-2.5-flash instead of flash-lite (more stable, less shell mode bugs)
+        # B69: Set SHELL=/bin/bash to prevent user shell config pollution (banners, hooks)
         subprocess.run([
             "tmux",
             "new-session",
@@ -33,6 +34,8 @@ class GeminiSessionTmux:
             "200",
             "-y",
             "50",
+            "env",
+            "SHELL=/bin/bash",
             "gemini",
             "--model",
             "gemini-2.5-flash",
