@@ -23,6 +23,7 @@ class ClaudeSessionTmux:
         subprocess.run(
             ["tmux", "kill-session", "-t", self.session_name], capture_output=True
         )
+        # B69: Set SHELL=/bin/bash to prevent user shell config pollution (banners, hooks)
         subprocess.run([
             "tmux",
             "new-session",
@@ -33,6 +34,8 @@ class ClaudeSessionTmux:
             "150",
             "-y",
             "50",
+            "env",
+            "SHELL=/bin/bash",
             "claude",
             "--permission-mode",
             "default",
