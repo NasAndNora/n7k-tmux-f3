@@ -314,7 +314,9 @@ class ClaudeToolParser:
                             logger.debug("=== TOOL INFO CREATED ===")
                             logger.debug("tool_type: %s", tool_info.tool_type)
                             logger.debug("file_path: %s", tool_info.file_path)
-                            logger.debug("diff_lines count: %d", len(tool_info.diff_lines))
+                            logger.debug(
+                                "diff_lines count: %d", len(tool_info.diff_lines)
+                            )
                 pending_header = None  # Clear after processing box
                 i = end_idx + 1
 
