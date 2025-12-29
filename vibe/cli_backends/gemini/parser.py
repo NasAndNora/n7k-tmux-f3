@@ -262,6 +262,9 @@ class GeminiToolParser:
     def _extract_box(self, lines: list[str], start_idx: int) -> tuple[list[str], int]:
         """Extract all lines within a box.
 
+        After preprocessing, lines no longer have │ wrappers, so we just
+        collect lines between BOX_START and BOX_END.
+
         Returns:
             Tuple of (box_content_lines, end_index).
         """
@@ -274,7 +277,9 @@ class GeminiToolParser:
             if self.BOX_END.match(line):
                 return box_lines, i
 
-            # Extract content from box line (strip │ from both ends)
+            # After preprocessing, lines are already stripped of │ wrappers
+            # Just collect the content directly
+            # Still handle case where │ wasn't stripped (defensive)
             match = self.BOX_LINE.match(line)
             if match:
                 content = match.group(1)
@@ -283,6 +288,9 @@ class GeminiToolParser:
                 # Partial match - just strip leading │
                 content = line[1:].rstrip("│").rstrip()
                 box_lines.append(content)
+            else:
+                # Line already preprocessed (no │) - use as-is
+                box_lines.append(line)
 
             i += 1
 
@@ -371,8 +379,14 @@ class GeminiToolParser:
                 tool_type = self._normalize_tool_type(header_match.group(1))
                 rest = header_match.group(2).strip()
 
-                # Extract file path from rest (e.g., "test.py: old => new" or "test.py")
-                if ":" in rest:
+                # Clean scroll indicator (←) and trailing spaces
+                rest = re.sub(r"\s+←?\s*$", "", rest).strip()
+
+                # Parse "Writing to X" format (Gemini uses this for WriteFile)
+                if rest.lower().startswith("writing to "):
+                    file_path = rest[11:]  # Skip "Writing to "
+                elif ":" in rest:
+                    # Extract file path from rest (e.g., "test.py: old => new")
                     file_path = rest.split(":")[0].strip()
                     description = rest.split(":", 1)[1].strip() if ":" in rest else ""
                 else:
