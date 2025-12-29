@@ -8,10 +8,13 @@ Note: Claude CLI uses same box format (╭─│╰) as Gemini.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import re
 
 from vibe.cli.textual_ui.widgets.ai_tools import CLIToolInfo
+
+logger = logging.getLogger(__name__)
 
 
 class ClaudeToolParser:
@@ -163,7 +166,7 @@ class ClaudeToolParser:
 
         Args:
             raw_output: Raw output from Claude CLI (with box characters).
-            debug: If True, write debug info to /tmp/claude_debug.txt
+            debug: If True, log debug info via logging (activate with VIBE_DEBUG=1)
 
         Returns:
             Tuple of (text_without_boxes, tool_info_or_none).
@@ -190,13 +193,12 @@ class ClaudeToolParser:
                     stripped = inner.strip()
             lines.append(stripped)
 
-        # Debug: log preprocessed lines
+        # Debug: log preprocessed lines (activate via VIBE_DEBUG=1)
         if debug:
-            with open("/tmp/claude_debug.txt", "a") as f:
-                f.write("\n=== PREPROCESSED LINES ===\n")
-                for i, line in enumerate(lines):
-                    f.write(f"{i}: [{line}]\n")
-                f.write("=== END PREPROCESSED ===\n")
+            logger.debug("=== PREPROCESSED LINES ===")
+            for i, line in enumerate(lines):
+                logger.debug("%d: [%s]", i, line)
+            logger.debug("=== END PREPROCESSED ===")
 
         text_lines: list[str] = []
         tool_info: CLIToolInfo | None = None
@@ -242,10 +244,9 @@ class ClaudeToolParser:
                     diff_lines=[],
                 )
                 if debug:
-                    with open("/tmp/claude_debug.txt", "a") as f:
-                        f.write("\n=== BASH COMMAND PARSED (B50) ===\n")
-                        f.write(f"command: {command}\n")
-                        f.write(f"description: {description}\n")
+                    logger.debug("=== BASH COMMAND PARSED (B50) ===")
+                    logger.debug("command: %s", command)
+                    logger.debug("description: %s", description)
                 i += 3  # Skip header + command + description
                 continue
 
@@ -278,14 +279,13 @@ class ClaudeToolParser:
             if self.BOX_START.match(line):
                 box_lines, end_idx = self._extract_box(lines, i)
                 if debug:
-                    with open("/tmp/claude_debug.txt", "a") as f:
-                        f.write(f"\n=== BOX FOUND at line {i} ===\n")
-                        f.write(f"pending_header: {pending_header}\n")
-                        f.write(f"box_lines count: {len(box_lines)}\n")
-                        for j, bl in enumerate(box_lines[:10]):
-                            f.write(f"  box[{j}]: [{bl}]\n")
-                        if len(box_lines) > 10:
-                            f.write(f"  ... +{len(box_lines) - 10} more lines\n")
+                    logger.debug("=== BOX FOUND at line %d ===", i)
+                    logger.debug("pending_header: %s", pending_header)
+                    logger.debug("box_lines count: %d", len(box_lines))
+                    for j, bl in enumerate(box_lines[:10]):
+                        logger.debug("  box[%d]: [%s]", j, bl)
+                    if len(box_lines) > 10:
+                        logger.debug("  ... +%d more lines", len(box_lines) - 10)
                 if box_lines:
                     # Try parsing box content first (header-inside-box format)
                     parsed = self._parse_box(box_lines)
@@ -311,13 +311,12 @@ class ClaudeToolParser:
                             diff_lines=diff_lines,
                         )
                         if debug:
-                            with open("/tmp/claude_debug.txt", "a") as f:
-                                f.write("=== TOOL INFO CREATED ===\n")
-                                f.write(f"tool_type: {tool_info.tool_type}\n")
-                                f.write(f"file_path: {tool_info.file_path}\n")
-                                f.write(
-                                    f"diff_lines count: {len(tool_info.diff_lines)}\n"
-                                )
+                            logger.debug("=== TOOL INFO CREATED ===")
+                            logger.debug("tool_type: %s", tool_info.tool_type)
+                            logger.debug("file_path: %s", tool_info.file_path)
+                            logger.debug(
+                                "diff_lines count: %d", len(tool_info.diff_lines)
+                            )
                 pending_header = None  # Clear after processing box
                 i = end_idx + 1
 
@@ -345,11 +344,10 @@ class ClaudeToolParser:
                     diff_lines=diff_lines,
                 )
                 if debug:
-                    with open("/tmp/claude_debug.txt", "a") as f:
-                        f.write("\n=== EDIT DIFF FOUND ===\n")
-                        f.write(f"tool_type: {tool_info.tool_type}\n")
-                        f.write(f"file_path: {tool_info.file_path}\n")
-                        f.write(f"diff_lines count: {len(tool_info.diff_lines)}\n")
+                    logger.debug("=== EDIT DIFF FOUND ===")
+                    logger.debug("tool_type: %s", tool_info.tool_type)
+                    logger.debug("file_path: %s", tool_info.file_path)
+                    logger.debug("diff_lines count: %d", len(tool_info.diff_lines))
                 pending_header = None
 
             else:
