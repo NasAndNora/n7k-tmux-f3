@@ -306,6 +306,10 @@ class ClaudeSessionTmux:
                 last_text_idx = i
 
         if last_text_idx == -1:
+            logger.debug(
+                "Parse failed: no text marker (●) found. Buffer preview: %s",
+                repr(raw[:200]) if raw else "EMPTY",
+            )
             return "", -1
 
         # B35 fix: Same index as previous poll = old message, return empty
