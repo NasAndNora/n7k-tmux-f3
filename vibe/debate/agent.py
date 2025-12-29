@@ -140,13 +140,14 @@ class DebateAgent:
         Yields:
             AssistantEvent with streamed content
         """
-
         # Parse tag if not provided
         logger.debug("=== route_message START === input: %s...", user_input[:50])
 
         if target is None:
             target, clean_msg = parse_routing_tag(user_input)
-            logger.debug("parsed tag: target=%s, clean_msg=%s...", target, clean_msg[:30])
+            logger.debug(
+                "parsed tag: target=%s, clean_msg=%s...", target, clean_msg[:30]
+            )
             if target is None:
                 # No tag - caller should show selector
                 logger.debug("NO TARGET - returning (should show selector)")

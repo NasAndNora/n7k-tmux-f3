@@ -193,7 +193,9 @@ class ClaudeSessionTmux:
                 # Check for confirmation prompt (Claude shows menu with "Do you want to" + "1. Yes")
                 has_confirmation = "Do you want to" in output and "1. Yes" in output
                 if has_confirmation:
-                    logger.debug("B36: Confirmation detected at %.1fs", time.time() - start_time)
+                    logger.debug(
+                        "B36: Confirmation detected at %.1fs", time.time() - start_time
+                    )
 
                 if has_confirmation:
                     return ParsedConfirmation(
