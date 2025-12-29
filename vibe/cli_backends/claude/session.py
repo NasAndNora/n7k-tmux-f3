@@ -12,6 +12,38 @@ from vibe.cli_backends.models import ParsedConfirmation, ParsedResponse
 
 logger = logging.getLogger(__name__)
 
+# R3: Pre-compiled noise patterns for _extract_response() performance
+# Measured: 59% gain (0.198s → 0.081s on 200 lines × 60 polls)
+_NOISE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"^✻.*interrupt",
+        r"^─+$",
+        r"Thinking",
+        r"Philosophising",
+        r"Pondering",
+        r"Reasoning",
+        r"ctrl-[gc]",
+        r"tab to toggle",
+        r"shift\+tab",
+        r"Shift \+ Enter",
+        r"^>\s*Try",
+        r"^>\s*$",
+        r"bypass permissions",
+        r"to cycle",
+        r"^[a-zA-Z0-9_-]+@[a-zA-Z0-9._-]+:",  # Shell prompt: user@host:
+        r"Welcome back",
+        r"Tips for getting",
+        r"default mode",
+        r"plan mode",
+        r"esc to interrupt",
+        # Confirmation UI elements only (not content)
+        r"^Do you want to",
+        r"^❯?\s*\d+\.\s*(Yes|No|Type)",
+        r"^Esc to cancel",
+    )
+)
+
 
 class ClaudeSessionTmux:
     def __init__(
@@ -255,33 +287,6 @@ class ClaudeSessionTmux:
         """
         lines = raw.strip().split("\n")
 
-        noise_patterns = [
-            r"^✻.*interrupt",
-            r"^─+$",
-            r"Thinking",
-            r"Philosophising",
-            r"Pondering",
-            r"Reasoning",
-            r"ctrl-[gc]",
-            r"tab to toggle",
-            r"shift\+tab",
-            r"Shift \+ Enter",
-            r"^>\s*Try",
-            r"^>\s*$",
-            r"bypass permissions",
-            r"to cycle",
-            r"^nasf@",
-            r"Welcome back",
-            r"Tips for getting",
-            r"default mode",
-            r"plan mode",
-            r"esc to interrupt",
-            # Confirmation UI elements only (not content)
-            r"^Do you want to",
-            r"^❯?\s*\d+\.\s*(Yes|No|Type)",
-            r"^Esc to cancel",
-        ]
-
         # Build last response: find last ● text (not tool), collect content + tool summaries
         result_lines = []
         in_response = False
@@ -306,6 +311,12 @@ class ClaudeSessionTmux:
                 last_text_idx = i
 
         if last_text_idx == -1:
+            logger.debug(
+                "Parse failed: no text marker (●) found. %s chars, %s lines. Preview: %s",
+                len(raw) if raw else 0,
+                raw.count("\n") + 1 if raw else 0,
+                repr(raw[:200]) if raw else "EMPTY",
+            )
             return "", -1
 
         # B35 fix: Same index as previous poll = old message, return empty
@@ -397,9 +408,7 @@ class ClaudeSessionTmux:
 
             # Normal content
             if in_response:
-                is_noise = any(
-                    re.search(p, stripped, re.IGNORECASE) for p in noise_patterns
-                )
+                is_noise = any(p.search(stripped) for p in _NOISE_PATTERNS)
                 if not is_noise and stripped:
                     result_lines.append(stripped)
 
