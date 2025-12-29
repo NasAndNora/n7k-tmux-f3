@@ -145,10 +145,12 @@ class TestClaudeParse:
 
         assert tool_info is not None
         assert tool_info.diff_lines is not None
-        assert len(tool_info.diff_lines) > 0
-        # Check diff contains expected changes
+        # EDIT_FILE_UPDATE has: -hello, +ligne1..6 = at least 7 lines
+        assert len(tool_info.diff_lines) >= 7
+        # Check specific content from fixture
         diff_content = "".join(line for _, line in tool_info.diff_lines)
-        assert "ligne1" in diff_content or "hello" in diff_content
+        assert "ligne1" in diff_content
+        assert "ligne6" in diff_content
 
     def test_diff_lines_have_markers(self, claude_parser: ClaudeToolParser):
         """
