@@ -31,7 +31,7 @@ _NOISE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"^>\s*$",
         r"bypass permissions",
         r"to cycle",
-        r"^nasf@",
+        r"^[a-zA-Z0-9_-]+@[a-zA-Z0-9._-]+:",  # Shell prompt: user@host:
         r"Welcome back",
         r"Tips for getting",
         r"default mode",

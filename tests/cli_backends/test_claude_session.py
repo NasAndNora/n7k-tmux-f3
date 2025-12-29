@@ -7,9 +7,8 @@ class TestExtractResponseNoiseFiltering:
     """Tests for noise pattern filtering in _extract_response()."""
 
     def test_noise_patterns_filtered(self):
-        """
-        Contrat: Les noise patterns (Thinking, ctrl-c, etc.) sont filtrés.
-        Si fail: Noise visible dans le chat utilisateur.
+        """Contract: Noise patterns (Thinking, ctrl-c, etc.) are filtered.
+        If fail: Noise visible in user chat.
         """
         from vibe.cli_backends.claude.session import ClaudeSessionTmux
 
@@ -37,9 +36,8 @@ Final content."""
         assert "Final content" in result, "Real content should be present"
 
     def test_noise_patterns_case_insensitive(self):
-        """
-        Contrat: Les noise patterns sont case-insensitive.
-        Si fail: 'THINKING' ou 'thinking' passent à travers.
+        """Contract: Noise patterns are case-insensitive.
+        If fail: 'THINKING' or 'thinking' pass through filter.
         """
         from vibe.cli_backends.claude.session import ClaudeSessionTmux
 
@@ -56,3 +54,37 @@ More real content."""
         assert "thinking" not in result, "Lowercase noise should be filtered"
         assert "Real content" in result
         assert "More real content" in result
+
+    def test_empty_buffer_returns_empty(self):
+        """Contract: Empty or whitespace-only buffer returns ("", -1).
+        If fail: Stale content may leak through.
+        """
+        from vibe.cli_backends.claude.session import ClaudeSessionTmux
+
+        session = ClaudeSessionTmux.__new__(ClaudeSessionTmux)
+
+        # Empty string
+        result, idx = session._extract_response("")
+        assert result == ""
+        assert idx == -1
+
+        # Whitespace only
+        result, idx = session._extract_response("   \n\t  \n  ")
+        assert result == ""
+        assert idx == -1
+
+    def test_no_marker_returns_empty(self):
+        """Contract: Buffer without ● marker returns ("", -1).
+        If fail: Content before first marker incorrectly treated as response.
+        """
+        from vibe.cli_backends.claude.session import ClaudeSessionTmux
+
+        session = ClaudeSessionTmux.__new__(ClaudeSessionTmux)
+
+        raw = """Some content without marker.
+Another line here.
+No bullet point anywhere."""
+
+        result, idx = session._extract_response(raw)
+        assert result == ""
+        assert idx == -1
