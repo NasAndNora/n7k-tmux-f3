@@ -80,6 +80,76 @@ class ClaudeToolParser:
         normalized = raw_type.lower()
         return self.TOOL_TYPE_MAP.get(normalized, normalized)
 
+    def parse_tool_result(self, raw: str) -> tuple[int | None, str | None]:
+        """Extract exit_code and output from the first completed Bash tool in buffer.
+
+        Used for chained commands and final response extraction.
+
+        Claude format (error):
+            ● Bash(command)
+              ⎿  Error: Exit code 1
+                 [stderr line]
+
+        Claude format (success):
+            ● Bash(command)
+              ⎿  output line
+
+        Note: Leading whitespace in error output may be lost during parsing.
+        This is a known limitation accepted for parser safety.
+
+        Args:
+            raw: Raw tmux buffer content.
+
+        Returns:
+            tuple: (exit_code, shell_output) or (None, None) if not found.
+        """
+        lines = raw.strip().split("\n")
+        exit_code = None
+        shell_output_lines: list[str] = []
+        in_tool_result = False
+        found_first_tool = False
+
+        for line in lines:
+            stripped = line.strip()
+
+            # Find Bash tool
+            if re.match(r"^●\s*Bash\(", stripped):
+                if found_first_tool:
+                    break  # 2nd tool = stop
+                found_first_tool = True
+                continue
+
+            # After first tool, look for result block (⎿)
+            if found_first_tool and stripped.startswith("⎿"):
+                in_tool_result = True
+                # Check for exit code (error case)
+                exit_match = re.search(r"Error: Exit code (\d+)", stripped)
+                if exit_match:
+                    exit_code = int(exit_match.group(1))
+                else:
+                    # Success case - content is inline after ⎿
+                    inline_content = re.sub(r"^⎿\s*", "", stripped)
+                    if inline_content:
+                        shell_output_lines.append(inline_content)
+                continue
+
+            # Collect stderr lines (5+ spaces indent for error case)
+            if in_tool_result:
+                # Stop conditions
+                if (
+                    not stripped
+                    or stripped.startswith("●")
+                    or stripped.startswith(">")
+                    or stripped.startswith("─")
+                ):
+                    break
+                # 5 spaces = content under ⎿ Error line
+                if line.startswith("     "):
+                    shell_output_lines.append(stripped)
+
+        shell_output = "\n".join(shell_output_lines) if shell_output_lines else None
+        return (exit_code, shell_output)
+
     def parse(
         self, raw_output: str, debug: bool = False
     ) -> tuple[str, CLIToolInfo | None]:

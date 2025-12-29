@@ -70,6 +70,39 @@ class GeminiToolParser:
         normalized = raw_type.lower()
         return self.TOOL_TYPE_MAP.get(normalized, normalized)
 
+    def parse_tool_result(self, content: str) -> tuple[int | None, str | None]:
+        """Extract exit_code and shell_output from Gemini response content.
+
+        Gemini format uses markers injected by _extract_response():
+        - __SHELL_OUTPUT__:... contains the shell output
+        - Command exited with code: X contains exit code
+
+        Args:
+            content: Response content (may contain __SHELL_OUTPUT__ marker).
+
+        Returns:
+            tuple: (exit_code, shell_output) or (None, None) if not found.
+        """
+        exit_code = None
+        shell_output = None
+
+        if not isinstance(content, str):
+            return (None, None)
+
+        # Extract exit code
+        exit_match = self.EXIT_CODE_PATTERN.search(content)
+        if exit_match:
+            exit_code = int(exit_match.group(1))
+
+        # Extract shell output from marker
+        output_match = re.search(
+            r"__SHELL_OUTPUT__:(.+?)(?=Command exited|$)", content, re.DOTALL
+        )
+        if output_match:
+            shell_output = output_match.group(1).strip()
+
+        return (exit_code, shell_output)
+
     def parse(
         self, raw_output: str, debug: bool = False
     ) -> tuple[str, CLIToolInfo | None]:
@@ -139,13 +172,32 @@ class GeminiToolParser:
                 def clean_path(p: str) -> str:
                     return re.sub(r"\s+←?\s*$", "", p).strip()
 
-                if rest.lower().startswith("writing to "):
+                # Shell: command is on the NEXT non-empty line, not in header
+                # Header format: "Shell cmd [cwd] (desc)" but cmd may have [ or (
+                # Gemini always puts clean command on line after header
+                if tool_type == "shell":
+                    # Find next non-empty line for command
+                    command = ""
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        next_line = lines[j].strip()
+                        if next_line and not next_line.startswith("Allow"):
+                            command = clean_path(next_line)
+                            break
+                    # Extract description from header (last parentheses)
+                    # Clean scroll indicator first (←)
+                    clean_rest = clean_path(rest)
+                    desc_match = re.search(r"\(([^)]+)\)\s*$", clean_rest)
+                    description = desc_match.group(1) if desc_match else ""
+                    pending_header = (tool_type, command, description)
+                elif rest.lower().startswith("writing to "):
                     file_path = clean_path(rest[11:])
+                    pending_header = (tool_type, file_path, "")
                 elif ":" in rest:
                     file_path = clean_path(rest.split(":")[0])
+                    pending_header = (tool_type, file_path, "")
                 else:
                     file_path = clean_path(rest)
-                pending_header = (tool_type, file_path, "")
+                    pending_header = (tool_type, file_path, "")
                 i += 1
                 continue
 

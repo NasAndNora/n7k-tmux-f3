@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from vibe.cli.textual_ui.widgets.ai_tools import CLIToolInfo
 from vibe.cli_backends.claude.parser import ClaudeToolParser
 from vibe.cli_backends.gemini.parser import GeminiToolParser
+from vibe.cli_backends.models import ParsedConfirmation, ParsedResponse
 from vibe.core.config import Backend, ProviderConfig
 from vibe.core.llm.backend.tmux import TmuxBackend
 from vibe.core.types import (
@@ -315,40 +316,27 @@ class DebateAgent:
         # Wait for response
         result = await backend.wait_response(timeout=int(self._timeout))
 
-        # B67 fix: Handle response dict (uniform format from both CLIs)
-        if isinstance(result, dict) and result.get("type") == "response":
+        # B67 fix: Handle ParsedResponse (uniform format from both CLIs)
+        if isinstance(result, ParsedResponse):
             if self._pending_tool_info and self._pending_tool_info.tool_type == "shell":
-                if result.get("exit_code") is not None:
-                    self._pending_tool_info.exit_code = result["exit_code"]
-                if result.get("shell_output") is not None:
-                    self._pending_tool_info.shell_output = result["shell_output"]
-            content = result.get("content", "")
+                if result.exit_code is not None:
+                    self._pending_tool_info.exit_code = result.exit_code
+                if result.shell_output is not None:
+                    self._pending_tool_info.shell_output = result.shell_output
+            content = result.content or ""
         elif isinstance(result, str):
-            # Fallback for safety (if backend returns string)
+            # Fallback: backends now return ParsedResponse, but keep for safety
             content = result
-            if self._pending_tool_info and self._pending_tool_info.tool_type == "shell":
-                exit_match = re.search(
-                    r"(?:Command exited with code:|Error: Exit code)\s*(\d+)",
-                    result,
-                    re.IGNORECASE,
-                )
-                if exit_match:
-                    self._pending_tool_info.exit_code = int(exit_match.group(1))
-                output_match = re.search(
-                    r"__SHELL_OUTPUT__:(.+?)(?=Command exited|$)", result, re.DOTALL
-                )
-                if output_match:
-                    self._pending_tool_info.shell_output = output_match.group(1).strip()
         else:
             content = ""
 
-        if isinstance(result, dict) and result.get("type") == "confirmation":
+        if isinstance(result, ParsedConfirmation):
             # Chained confirmation detected - extract data from prior command first
-            prior_result = result.get("prior_result", "")
+            prior_result = result.prior_result.content if result.prior_result else ""
 
             # B67 fix: Use structured data if available (Claude), else parse from text (Gemini)
-            prior_exit_code = result.get("prior_exit_code")
-            prior_shell_output = result.get("prior_shell_output")
+            prior_exit_code = result.prior_exit_code
+            prior_shell_output = result.prior_shell_output
 
             if self._pending_tool_info and self._pending_tool_info.tool_type == "shell":
                 # Use structured data from CLI if available
@@ -396,7 +384,7 @@ class DebateAgent:
                 yield CLIToolResultEvent(tool_info=self._pending_tool_info)
 
             # Parse the NEW confirmation (cmd2)
-            context = result.get("context", "")
+            context = result.context
             self._pending_confirmation = {"target": target, "context": context}
             parser = self._get_parser(target)
             _, self._pending_tool_info = parser.parse(context, debug=True)

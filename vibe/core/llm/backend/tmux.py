@@ -8,6 +8,7 @@ import types
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from vibe.cli_backends.models import ParsedConfirmation
 from vibe.core.types import (
     AvailableTool,
     LLMChunk,
@@ -92,8 +93,8 @@ class TmuxBackend:
 
         response = await asyncio.to_thread(self._session.ask, prompt, timeout)
 
-        # Handle Gemini confirmation
-        if isinstance(response, dict) and response.get("type") == "confirmation":
+        # Handle confirmation (Claude/Gemini)
+        if isinstance(response, ParsedConfirmation):
             return LLMChunk(
                 message=LLMMessage(role=Role.assistant, content=""),
                 usage=LLMUsage(),
@@ -161,12 +162,9 @@ class TmuxBackend:
             pass
 
         # Handle confirmation
-        if (
-            isinstance(final_result, dict)
-            and final_result.get("type") == "confirmation"
-        ):
+        if isinstance(final_result, ParsedConfirmation):
             # Pass the confirmation context (contains the tool box with diff)
-            context = final_result.get("context", "")
+            context = final_result.context
             yield LLMChunk(
                 message=LLMMessage(role=Role.assistant, content=context),
                 usage=LLMUsage(),
