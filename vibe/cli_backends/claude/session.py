@@ -312,7 +312,9 @@ class ClaudeSessionTmux:
 
         if last_text_idx == -1:
             logger.debug(
-                "Parse failed: no text marker (●) found. Buffer preview: %s",
+                "Parse failed: no text marker (●) found. %s chars, %s lines. Preview: %s",
+                len(raw) if raw else 0,
+                raw.count("\n") + 1 if raw else 0,
                 repr(raw[:200]) if raw else "EMPTY",
             )
             return "", -1
