@@ -257,12 +257,13 @@ class GeminiSessionTmux:
         if len(all_responses) > skip_count:
             result = all_responses[-1]
 
-        # B12/B13 fix: For shell, hide duplicate output from message (shown in widget instead)
+        # B12/B13 fix: For shell, add markers for widget (but keep text response)
         if shell_output_lines:
-            # Replace verbose Gemini response with short message, output goes to widget
-            result = f"__SHELL_OUTPUT__:{chr(10).join(shell_output_lines)}"
+            shell_marker = f"__SHELL_OUTPUT__:{chr(10).join(shell_output_lines)}"
             if exit_code_line:
-                result = f"{result}\n{exit_code_line}"
+                shell_marker = f"{shell_marker}\n{exit_code_line}"
+            # Append marker AFTER result so regex cleanup preserves text response
+            result = f"{result}\n{shell_marker}" if result else shell_marker
         elif exit_code_line and result:
             result = f"{result}\n{exit_code_line}"
 
@@ -351,6 +352,7 @@ class GeminiSessionTmux:
                     and "esc to cancel" not in output
                 ):
                     content = self._extract_response(output, responses_before - 1)
+
                     # Parse structured data from content (uses parser)
                     exit_code, shell_output = self._parser.parse_tool_result(content)
                     # Clean content (remove markers)
@@ -358,6 +360,7 @@ class GeminiSessionTmux:
                         content = re.sub(
                             r"__SHELL_OUTPUT__:.*", "", content, flags=re.DOTALL
                         ).strip()
+
                     return ParsedResponse(
                         content=content,
                         exit_code=exit_code,

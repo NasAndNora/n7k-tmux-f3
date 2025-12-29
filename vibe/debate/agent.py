@@ -384,7 +384,7 @@ class DebateAgent:
                 yield CLIToolResultEvent(tool_info=self._pending_tool_info)
 
             # Parse the NEW confirmation (cmd2)
-            context = result.get("context", "")
+            context = result.context
             self._pending_confirmation = {"target": target, "context": context}
             parser = self._get_parser(target)
             _, self._pending_tool_info = parser.parse(context, debug=True)

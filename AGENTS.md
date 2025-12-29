@@ -132,4 +132,4 @@ guidelines:
       - uv add/remove <package> to manage dependencies
       - uv sync to install dependencies declared in pyproject.toml and uv.lock
       - uv run script.py to run a script within the uv environment
-      - uvx tox to run tests (CRITICAL: never use pytest directly, always use tox for isolation)
+      - uvx --with tox-uv tox to run tests (CRITICAL: never use pytest directly, always use tox for isolation)

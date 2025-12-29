@@ -174,13 +174,32 @@ class GeminiToolParser:
                 def clean_path(p: str) -> str:
                     return re.sub(r"\s+←?\s*$", "", p).strip()
 
-                if rest.lower().startswith("writing to "):
+                # Shell: command is on the NEXT non-empty line, not in header
+                # Header format: "Shell cmd [cwd] (desc)" but cmd may have [ or (
+                # Gemini always puts clean command on line after header
+                if tool_type == "shell":
+                    # Find next non-empty line for command
+                    command = ""
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        next_line = lines[j].strip()
+                        if next_line and not next_line.startswith("Allow"):
+                            command = clean_path(next_line)
+                            break
+                    # Extract description from header (last parentheses)
+                    # Clean scroll indicator first (←)
+                    clean_rest = clean_path(rest)
+                    desc_match = re.search(r'\(([^)]+)\)\s*$', clean_rest)
+                    description = desc_match.group(1) if desc_match else ""
+                    pending_header = (tool_type, command, description)
+                elif rest.lower().startswith("writing to "):
                     file_path = clean_path(rest[11:])
+                    pending_header = (tool_type, file_path, "")
                 elif ":" in rest:
                     file_path = clean_path(rest.split(":")[0])
+                    pending_header = (tool_type, file_path, "")
                 else:
                     file_path = clean_path(rest)
-                pending_header = (tool_type, file_path, "")
+                    pending_header = (tool_type, file_path, "")
                 i += 1
                 continue
 
