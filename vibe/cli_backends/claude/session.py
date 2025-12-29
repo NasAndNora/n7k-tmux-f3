@@ -10,6 +10,8 @@ from typing import Any
 from vibe.cli_backends.claude.parser import ClaudeToolParser
 from vibe.cli_backends.models import ParsedConfirmation, ParsedResponse
 
+logger = logging.getLogger(__name__)
+
 
 class ClaudeSessionTmux:
     def __init__(
@@ -94,14 +96,11 @@ class ClaudeSessionTmux:
                 1 for line in old_lines if line.strip().startswith("●")
             )
 
-            # TODO: Remove debug logging before prod
-            with open("/tmp/claude_polling_debug.txt", "a") as f:
-                f.write(f"\n{'=' * 60}\n")
-                f.write(f"=== NEW TURN: {prompt[:50]}... ===\n")
-                f.write(f"{'=' * 60}\n")
-                f.write(
-                    f"Initial last_marker_line: {repr(last_marker_line[:80]) if last_marker_line else 'EMPTY'}\n"
-                )
+            logger.debug("=== NEW TURN: %s... ===", prompt[:50])
+            logger.debug(
+                "Initial last_marker_line: %s",
+                repr(last_marker_line[:80]) if last_marker_line else "EMPTY",
+            )
 
             # B49 fix: load-buffer + paste-buffer with -p (bracketed paste) and -r (preserve newlines)
             subprocess.run(["tmux", "load-buffer", "-"], input=prompt.encode("utf-8"))
@@ -172,23 +171,15 @@ class ClaudeSessionTmux:
                         or current_marker_count > last_marker_count
                     )
 
-                    # TODO: Remove debug logging before prod
                     has_spinner = "✻" in output
                     will_stream = partial and is_new_message
-                    with open("/tmp/claude_polling_debug.txt", "a") as f:
-                        f.write(f"\n--- POLL {time.time() - start_time:.1f}s ---\n")
-                        f.write(f"has_spinner: {has_spinner}\n")
-                        f.write(
-                            f"last_marker: {repr(last_marker_line[:50]) if last_marker_line else 'EMPTY'}\n"
-                        )
-                        f.write(
-                            f"current_marker: {repr(current_marker_line[:50]) if current_marker_line else 'EMPTY'}\n"
-                        )
-                        f.write(f"is_new_message: {is_new_message}\n")
-                        f.write(f"partial_empty: {not partial}\n")
-                        f.write(f"DECISION: {'STREAM' if will_stream else 'SKIP'}\n")
-                        if partial:
-                            f.write(f"partial (100 chars): {partial[:100]!r}\n")
+                    logger.debug(
+                        "POLL %.1fs: spinner=%s, is_new=%s, decision=%s",
+                        time.time() - start_time,
+                        has_spinner,
+                        is_new_message,
+                        "STREAM" if will_stream else "SKIP",
+                    )
 
                     # B35 fix: Only stream if new marker line (new ● message started)
                     # B39 fix: Or if marker count increased (new response with identical content)
@@ -201,15 +192,8 @@ class ClaudeSessionTmux:
 
                 # Check for confirmation prompt (Claude shows menu with "Do you want to" + "1. Yes")
                 has_confirmation = "Do you want to" in output and "1. Yes" in output
-
-                # DEBUG B36: Log confirmation detection
-                with open("/tmp/claude_b36_debug.txt", "a") as f:
-                    f.write(f"\n=== POLL {time.time() - start_time:.1f}s ===\n")
-                    f.write(f"has_confirmation: {has_confirmation}\n")
-                    if has_confirmation:
-                        f.write("=== LAST 30 LINES OF OUTPUT ===\n")
-                        for i, line in enumerate(output.strip().split("\n")[-30:]):
-                            f.write(f"{i}: {line!r}\n")
+                if has_confirmation:
+                    logger.debug("B36: Confirmation detected at %.1fs", time.time() - start_time)
 
                 if has_confirmation:
                     return ParsedConfirmation(
@@ -599,12 +583,12 @@ class ClaudeSessionTmux:
             last_5_lines = [l.strip() for l in output.strip().split("\n")[-5:]]
             prompt_ready = any(l == ">" or l.startswith("> ") for l in last_5_lines)
 
-            # DEBUG: Log wait_response polling
-            with open("/tmp/claude_wait_debug.txt", "a") as f:
-                f.write(f"\n=== WAIT {time.time() - start_time:.1f}s ===\n")
-                f.write(f"has_spinner: {has_spinner}\n")
-                f.write(f"prompt_ready: {prompt_ready}\n")
-                f.write(f"last_5_lines: {last_5_lines}\n")
+            logger.debug(
+                "WAIT %.1fs: spinner=%s, prompt_ready=%s",
+                time.time() - start_time,
+                has_spinner,
+                prompt_ready,
+            )
 
             if prompt_ready and not has_spinner:
                 final_content, _ = self._extract_response(output, 0)
