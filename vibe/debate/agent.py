@@ -27,6 +27,8 @@ from vibe.debate.routing import Message, build_context, parse_routing_tag
 if TYPE_CHECKING:
     from vibe.core.config import ModelConfig, VibeConfig
 
+logger = logging.getLogger(__name__)
+
 
 class DebateAgent:
     """Routes messages between Claude and Gemini backends."""
@@ -138,27 +140,21 @@ class DebateAgent:
         Yields:
             AssistantEvent with streamed content
         """
-
         # Parse tag if not provided
-        # B49 debug: Centralized log for tracing flow
-        def _log(msg: str) -> None:
-            with open("/tmp/vibe_debug.txt", "a") as f:
-                from datetime import datetime as dt
-
-                f.write(f"[{dt.now().strftime('%H:%M:%S')}] {msg}\n")
-
-        _log(f"=== route_message START === input: {user_input[:50]}...")
+        logger.debug("=== route_message START === input: %s...", user_input[:50])
 
         if target is None:
             target, clean_msg = parse_routing_tag(user_input)
-            _log(f"parsed tag: target={target}, clean_msg={clean_msg[:30]}...")
+            logger.debug(
+                "parsed tag: target=%s, clean_msg=%s...", target, clean_msg[:30]
+            )
             if target is None:
                 # No tag - caller should show selector
-                _log("NO TARGET - returning (should show selector)")
+                logger.debug("NO TARGET - returning (should show selector)")
                 return
         else:
             _, clean_msg = parse_routing_tag(user_input)
-            _log(f"target provided: {target}, clean_msg={clean_msg[:30]}...")
+            logger.debug("target provided: %s, clean_msg=%s...", target, clean_msg[:30])
 
         # Add user message to history
         self.messages.append(
@@ -180,22 +176,18 @@ class DebateAgent:
         else:
             prompt = f"USER asks {clean_msg}"
 
-        # TODO B49: Log full prompt to debug shell mode trigger
-        with open(f"/tmp/{target}_prompt.txt", "w") as f:
-            f.write(f"=== PROMPT SENT TO {target.upper()} ===\n")
-            f.write(prompt)
-            f.write("\n=== END ===\n")
-
-        _log(f"prompt built, length={len(prompt)}")
+        # Log prompt for debugging (B49: shell mode trigger)
+        logger.debug("=== PROMPT SENT TO %s ===", target.upper())
+        logger.debug("prompt built, length=%d", len(prompt))
 
         # Get backend and stream response
         backend = self._get_backend(target)
-        _log(f"got backend: {backend.__class__.__name__}")
+        logger.debug("got backend: %s", backend.__class__.__name__)
         model = self._get_model_config()
         messages = [LLMMessage(role=Role.user, content=prompt)]
 
         full_response = ""
-        _log("starting streaming loop...")
+        logger.debug("starting streaming loop...")
 
         async for chunk in backend.complete_streaming(
             model=model,
@@ -206,36 +198,35 @@ class DebateAgent:
             tool_choice=None,
             extra_headers=None,
         ):
-            _log(
-                f"chunk received: finish_reason={chunk.finish_reason}, content_len={len(chunk.message.content or '')}"
+            logger.debug(
+                "chunk received: finish_reason=%s, content_len=%d",
+                chunk.finish_reason,
+                len(chunk.message.content or ""),
             )
             if chunk.finish_reason == "confirmation":
-                # TODO B44: Log confirmation received from backend
-                logging.debug("B44: Agent received confirmation from backend")
+                logger.debug("Agent received confirmation from backend")
                 # AI confirmation - parse tool info from the confirmation context
                 # The context is in chunk.message.content (passed from TmuxBackend)
                 confirmation_context = chunk.message.content or ""
 
                 if confirmation_context:
-                    # DEBUG: Write to file for inspection
-                    debug_file = f"/tmp/{target}_debug.txt"
-                    with open(debug_file, "w") as f:
-                        f.write("=== CONFIRMATION CONTEXT ===\n")
-                        f.write(confirmation_context)
-                        f.write("\n=== END ===\n")
+                    logger.debug("=== CONFIRMATION CONTEXT ===")
+                    logger.debug("%s", confirmation_context[:500])  # First 500 chars
 
                     # Use parser for this AI
                     parser = self._get_parser(target)
                     _, tool_info = parser.parse(confirmation_context, debug=True)
                     self._pending_tool_info = tool_info
 
-                    with open(debug_file, "a") as f:
-                        if tool_info:
-                            f.write(
-                                f"\n=== PARSED ===\ntool_type: {tool_info.tool_type}\nfile_path: {tool_info.file_path}\ndiff_lines: {tool_info.diff_lines}\n"
-                            )
-                        else:
-                            f.write("\n=== NO TOOL INFO PARSED ===\n")
+                    if tool_info:
+                        logger.debug(
+                            "=== PARSED === tool_type=%s, file_path=%s, diff_lines=%d",
+                            tool_info.tool_type,
+                            tool_info.file_path,
+                            len(tool_info.diff_lines),
+                        )
+                    else:
+                        logger.debug("=== NO TOOL INFO PARSED ===")
 
                 self._pending_confirmation = {
                     "target": target,
@@ -265,7 +256,7 @@ class DebateAgent:
                     # Send full content - widget will replace (not append)
                     yield AssistantEvent(content=clean_content)
 
-        _log(f"streaming loop DONE, full_response_len={len(full_response)}")
+        logger.debug("streaming loop DONE, full_response_len=%d", len(full_response))
 
         # Add AI response to history
         if full_response:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import ClassVar
 
 from textual import events
@@ -12,13 +13,7 @@ from textual.widgets import Static
 from vibe.cli.textual_ui.renderers import get_renderer
 from vibe.core.config import VibeConfig
 
-
-# B49 debug: Log to trace input events on ApprovalApp
-def _log(msg: str) -> None:
-    with open("/tmp/vibe_debug.txt", "a") as f:
-        from datetime import datetime
-
-        f.write(f"[{datetime.now().strftime('%H:%M:%S')}] APPROVAL: {msg}\n")
+logger = logging.getLogger(__name__)
 
 
 class ApprovalApp(Container):
@@ -100,11 +95,11 @@ class ApprovalApp(Container):
             yield self.help_widget
 
     async def on_mount(self) -> None:
-        _log(f"on_mount called, id={self.id}")
+        logger.debug("APPROVAL: on_mount called, id=%s", self.id)
         await self._update_tool_info()
         self._update_options()
         self.focus()
-        _log(f"focus() called, has_focus={self.has_focus}")
+        logger.debug("APPROVAL: focus() called, has_focus=%s", self.has_focus)
 
     async def _update_tool_info(self) -> None:
         if not self.tool_info_container:
@@ -159,45 +154,45 @@ class ApprovalApp(Container):
                     widget.add_class("approval-option-no")
 
     def action_move_up(self) -> None:
-        _log("action_move_up triggered")
+        logger.debug("APPROVAL: action_move_up triggered")
         # Skip option 1 (disabled)
         self.selected_option = 0 if self.selected_option == 2 else 2
         self._update_options()
 
     def action_move_down(self) -> None:
-        _log("action_move_down triggered")
+        logger.debug("APPROVAL: action_move_down triggered")
         # Skip option 1 (disabled)
         self.selected_option = 2 if self.selected_option == 0 else 0
         self._update_options()
 
     def action_select(self) -> None:
-        _log("action_select triggered (Enter)")
+        logger.debug("APPROVAL: action_select triggered (Enter)")
         self._handle_selection(self.selected_option)
 
     def action_select_1(self) -> None:
-        _log("action_select_1 triggered (1 or y)")
+        logger.debug("APPROVAL: action_select_1 triggered (1 or y)")
         self.selected_option = 0
         self._handle_selection(0)
 
     def action_select_2(self) -> None:
-        _log("action_select_2 triggered (disabled)")
+        logger.debug("APPROVAL: action_select_2 triggered (disabled)")
         self.selected_option = 1
         self._handle_selection(1)
 
     def action_select_3(self) -> None:
-        _log("action_select_3 triggered (3 or n)")
+        logger.debug("APPROVAL: action_select_3 triggered (3 or n)")
         self.selected_option = 2
         self._handle_selection(2)
 
     def action_reject(self) -> None:
-        _log("action_reject triggered (ESC)")
+        logger.debug("APPROVAL: action_reject triggered (ESC)")
         self.selected_option = 2
         self._handle_selection(2)
 
     def _handle_selection(self, option: int) -> None:
-        _log(f"_handle_selection called, option={option}")
+        logger.debug("APPROVAL: _handle_selection called, option=%d", option)
         if option == 1:  # Option 2 disabled - use shift+tab for auto-approve
-            _log("option 1 is disabled, returning")
+            logger.debug("APPROVAL: option 1 is disabled, returning")
             return
         match option:
             case 0:
@@ -222,14 +217,18 @@ class ApprovalApp(Container):
                 )
 
     def on_blur(self, event: events.Blur) -> None:
-        _log("on_blur triggered, refocusing...")
+        logger.debug("APPROVAL: on_blur triggered, refocusing...")
         self.call_after_refresh(self.focus)
 
     def on_key(self, event: events.Key) -> None:
-        _log(f"on_key received: key={event.key}, character={event.character}")
+        logger.debug(
+            "APPROVAL: on_key received: key=%s, character=%s",
+            event.key,
+            event.character,
+        )
 
     def on_mouse_down(self, event: events.MouseDown) -> None:
-        _log(f"on_mouse_down received: x={event.x}, y={event.y}")
+        logger.debug("APPROVAL: on_mouse_down received: x=%d, y=%d", event.x, event.y)
 
     def on_click(self, event: events.Click) -> None:
-        _log(f"on_click received: x={event.x}, y={event.y}")
+        logger.debug("APPROVAL: on_click received: x=%d, y=%d", event.x, event.y)

@@ -6,6 +6,7 @@ import concurrent.futures
 from enum import Enum, auto
 import functools
 import logging
+import os
 from pathlib import Path
 import re
 import sys
@@ -137,9 +138,12 @@ def is_dangerous_directory(path: Path | str = ".") -> tuple[bool, str]:
 
 LOG_DIR.path.mkdir(parents=True, exist_ok=True)
 
+# VIBE_DEBUG=1 enables DEBUG level logging
+_log_level = logging.DEBUG if os.environ.get("VIBE_DEBUG") == "1" else logging.INFO
+
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
+    level=_log_level,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     handlers=[logging.FileHandler(LOG_FILE.path, "a", "utf-8")],
 )
 

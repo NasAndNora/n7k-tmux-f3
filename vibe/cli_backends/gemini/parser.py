@@ -6,10 +6,13 @@ to enable proper rendering via Vibe's SearchReplaceRenderer.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import re
 
 from vibe.cli.textual_ui.widgets.ai_tools import CLIToolInfo
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiToolParser:
@@ -116,7 +119,7 @@ class GeminiToolParser:
 
         Args:
             raw_output: Raw output from Gemini CLI (with box characters).
-            debug: If True, write debug info to /tmp/gemini_debug.txt
+            debug: If True, log debug info via logging (activate with VIBE_DEBUG=1)
 
         Returns:
             Tuple of (text_without_boxes, tool_info_or_none).
@@ -143,13 +146,12 @@ class GeminiToolParser:
                     stripped = inner.strip()
             lines.append(stripped)
 
-        # Debug: log preprocessed lines
+        # Debug: log preprocessed lines (activate via VIBE_DEBUG=1)
         if debug:
-            with open("/tmp/gemini_debug.txt", "a") as f:
-                f.write("\n=== PREPROCESSED LINES ===\n")
-                for i, line in enumerate(lines):
-                    f.write(f"{i}: [{line}]\n")
-                f.write("=== END PREPROCESSED ===\n")
+            logger.debug("=== PREPROCESSED LINES ===")
+            for i, line in enumerate(lines):
+                logger.debug("%d: [%s]", i, line)
+            logger.debug("=== END PREPROCESSED ===")
 
         text_lines: list[str] = []
         tool_info: CLIToolInfo | None = None

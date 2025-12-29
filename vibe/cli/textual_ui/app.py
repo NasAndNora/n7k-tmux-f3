@@ -6,13 +6,6 @@ import logging
 import subprocess
 from typing import Any, ClassVar, assert_never
 
-# B44 debug: Log approval flow to diagnose freezes
-logging.basicConfig(
-    filename="/tmp/vibe_app.log",
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, VerticalScroll
@@ -263,13 +256,7 @@ class VibeApp(App):
     async def on_approval_app_approval_granted(
         self, message: ApprovalApp.ApprovalGranted
     ) -> None:
-        # B49 debug
-        with open("/tmp/vibe_debug.txt", "a") as f:
-            from datetime import datetime
-
-            f.write(
-                f"[{datetime.now().strftime('%H:%M:%S')}] APP: on_approval_app_approval_granted received\n"
-            )
+        logger.debug("APP: on_approval_app_approval_granted received")
         if self._pending_approval and not self._pending_approval.done():
             self._pending_approval.set_result((ApprovalResponse.YES, None))
 
@@ -290,13 +277,7 @@ class VibeApp(App):
     async def on_approval_app_approval_rejected(
         self, message: ApprovalApp.ApprovalRejected
     ) -> None:
-        # B49 debug
-        with open("/tmp/vibe_debug.txt", "a") as f:
-            from datetime import datetime
-
-            f.write(
-                f"[{datetime.now().strftime('%H:%M:%S')}] APP: on_approval_app_approval_rejected received\n"
-            )
+        logger.debug("APP: on_approval_app_approval_rejected received")
         if self._pending_approval and not self._pending_approval.done():
             feedback = str(
                 get_user_cancellation_message(CancellationReason.OPERATION_CANCELLED)
@@ -1574,16 +1555,12 @@ class VibeApp(App):
         copy_selection_to_clipboard(self)
 
     def on_key(self, event: Key) -> None:
-        # B49 debug: Log all key events at app level
-        with open("/tmp/vibe_debug.txt", "a") as f:
-            from datetime import datetime
-
-            focused = self.focused
-            focused_id = focused.id if focused else "None"
-            focused_class = focused.__class__.__name__ if focused else "None"
-            f.write(
-                f"[{datetime.now().strftime('%H:%M:%S')}] APP.on_key: key={event.key}, focused={focused_class}#{focused_id}\n"
-            )
+        focused = self.focused
+        focused_id = focused.id if focused else "None"
+        focused_class = focused.__class__.__name__ if focused else "None"
+        logger.debug(
+            "APP.on_key: key=%s, focused=%s#%s", event.key, focused_class, focused_id
+        )
 
 
 def run_textual_ui(
