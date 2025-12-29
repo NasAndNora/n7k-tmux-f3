@@ -16,10 +16,12 @@ def mock_cli_detection():
     Solution: Patch shutil.which at the module where it's used to simulate all
     dependencies being installed. This ensures identical rendering everywhere.
     """
+
     def fake_which(cmd: str) -> str:
         return f"/usr/bin/{cmd}"
 
     with patch(
-        "vibe.cli.textual_ui.widgets.context_progress.shutil.which", side_effect=fake_which
+        "vibe.cli.textual_ui.widgets.context_progress.shutil.which",
+        side_effect=fake_which,
     ):
         yield
