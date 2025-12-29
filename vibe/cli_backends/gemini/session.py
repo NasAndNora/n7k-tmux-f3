@@ -125,7 +125,7 @@ class GeminiSessionTmux:
                         "B44: Gemini confirmation detected, returning to agent"
                     )
                     return ParsedConfirmation(
-                        context=self._extract_confirmation_context(output),
+                        context=self._extract_confirmation_context(output)
                     )
 
                 responses_now = output.count("✦") + output.count("✧")
@@ -346,7 +346,9 @@ class GeminiSessionTmux:
                 prior_result = self._extract_response(output, responses_before - 1)
                 return ParsedConfirmation(
                     context=self._extract_confirmation_context(output),
-                    prior_result=ParsedResponse(content=prior_result) if prior_result else None,
+                    prior_result=ParsedResponse(content=prior_result)
+                    if prior_result
+                    else None,
                 )
 
             if "Type your message" in output:
@@ -365,9 +367,7 @@ class GeminiSessionTmux:
                         ).strip()
 
                     return ParsedResponse(
-                        content=content,
-                        exit_code=exit_code,
-                        shell_output=shell_output,
+                        content=content, exit_code=exit_code, shell_output=shell_output
                     )
 
         return ParsedResponse(content="⚠️ Timeout")

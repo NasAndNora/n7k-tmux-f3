@@ -96,9 +96,7 @@ class GeminiToolParser:
 
         # Extract shell output from marker
         output_match = re.search(
-            r"__SHELL_OUTPUT__:(.+?)(?=Command exited|$)",
-            content,
-            re.DOTALL,
+            r"__SHELL_OUTPUT__:(.+?)(?=Command exited|$)", content, re.DOTALL
         )
         if output_match:
             shell_output = output_match.group(1).strip()
@@ -188,7 +186,7 @@ class GeminiToolParser:
                     # Extract description from header (last parentheses)
                     # Clean scroll indicator first (←)
                     clean_rest = clean_path(rest)
-                    desc_match = re.search(r'\(([^)]+)\)\s*$', clean_rest)
+                    desc_match = re.search(r"\(([^)]+)\)\s*$", clean_rest)
                     description = desc_match.group(1) if desc_match else ""
                     pending_header = (tool_type, command, description)
                 elif rest.lower().startswith("writing to "):
