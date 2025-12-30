@@ -203,6 +203,13 @@ tests/playground/*
 # pytest-textual-snapshot output
 snapshot_report.html
 
+# OPS INDEX (auto-generated)
+ops.py
+_OPS_INDEX.md
+
+# Scripts (local dev)
+scripts/tox
+
 # Internal docs (not for public)
 CLAUDE.md
 BUGS.md
