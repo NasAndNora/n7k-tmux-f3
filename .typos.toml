@@ -2,7 +2,7 @@
 extend-ignore-re = ["(?m)^.*(#|//)\\s*typos:disable-line$", "datas"]
 
 [files]
-extend-exclude = ["UPSTREAM_SYNC.md", "CHANGELOG.md", "BUGS.md", "NOTES.md", "ARCHITECTURE.md", "FILES.md"]
+extend-exclude = ["UPSTREAM_SYNC.md", "CHANGELOG.md", "BUGS.md", "NOTES.md", "ARCHITECTURE_CLI.md", "FILES.md"]
 
 [default.extend-words]
 iterm = "iterm"

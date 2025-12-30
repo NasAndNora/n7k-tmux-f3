@@ -59,7 +59,7 @@ jobs:
             - Command injection (shell, tmux send-keys)
 
             ### Architecture
-            - Violates ARCHITECTURE.md principles
+            - Violates ARCHITECTURE_CLI.md principles
             - Hardcoded strings vs established constants
             - Duplicate logic vs reusing existing
             - Tight coupling (circular imports, shared global state)
@@ -108,7 +108,7 @@ jobs:
             1. **Context check** (read if relevant to PR):
                - BUGS.md - Open bugs (symptoms, causes, files, priority) + fixed bugs history
                - CHANGELOG.md - Version history with root causes, fixes, architectural decisions
-               - ARCHITECTURE.md - Project structure, routing patterns, where code should live
+               - ARCHITECTURE_CLI.md - Project structure, routing patterns, where code should live
             2. Analyze diff: "what breaks if...?" → simulate edge cases, races, injection
             3. Never judge without verifying code - read files when uncertain
             4. Never invent risks without proof - say "unsure" if doubt

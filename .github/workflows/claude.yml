@@ -53,7 +53,7 @@ jobs:
             **Context docs** (read if relevant):
             - `BUGS.md` - Open bugs (symptoms, causes, files, priority) + fixed bugs history
             - `CHANGELOG.md` - Version history with root causes, fixes, architectural decisions
-            - `ARCHITECTURE.md` - Project structure, routing patterns, where code should live
+            - `ARCHITECTURE_CLI.md` - Project structure, routing patterns, where code should live
 
             **Key principles:**
             - Parsers isolated per AI, not mixed in routing/UI

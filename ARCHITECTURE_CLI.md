@@ -1,0 +1,1 @@
+/home/nasf/dev/projects/multi-agent-chat/ARCHITECTURE_CLI.md
