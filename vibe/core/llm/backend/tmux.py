@@ -199,6 +199,12 @@ class TmuxBackend:
                 total += len(msg.content)
         return total // 4
 
+    async def is_alive(self) -> bool:
+        """B59: Check if tmux session is still running."""
+        if self._session is None:
+            return False
+        return await asyncio.to_thread(self._session.is_alive)
+
     async def close(self) -> None:
         """Close the session."""
         if self._session is not None:

@@ -168,6 +168,9 @@ class ClaudeSessionTmux:
                     capture_output=True,
                     text=True,
                 )
+                # B59: Detect dead session during polling
+                if result.returncode != 0:
+                    return "❌ Claude crashed. Restart TheOne to recover."
                 output = result.stdout
                 t_capture = time.time()
 
@@ -526,6 +529,11 @@ class ClaudeSessionTmux:
                 capture_output=True,
                 text=True,
             )
+            # B59: Detect dead session during polling
+            if result.returncode != 0:
+                return ParsedResponse(
+                    content="❌ Claude crashed. Restart TheOne to recover."
+                )
             output = result.stdout
             t_capture = time.time()
 
@@ -615,6 +623,13 @@ class ClaudeSessionTmux:
     def interrupt(self) -> None:
         """Send Escape to stop generation (no-op if not generating)."""
         subprocess.run(["tmux", "send-keys", "-t", self.session_name, "Escape"])
+
+    def is_alive(self) -> bool:
+        """B59: Check if tmux session is still running."""
+        result = subprocess.run(
+            ["tmux", "has-session", "-t", self.session_name], capture_output=True
+        )
+        return result.returncode == 0
 
     def close(self) -> None:
         subprocess.run(["tmux", "send-keys", "-t", self.session_name, "/exit", "Enter"])
