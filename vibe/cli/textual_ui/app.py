@@ -959,6 +959,10 @@ class VibeApp(App):
             except asyncio.CancelledError:
                 pass
 
+        # B52: Send Escape to tmux sessions before cancelling task
+        if self._debate_agent:
+            await self._debate_agent.interrupt()
+
         if self._agent_task and not self._agent_task.done():
             self._agent_task.cancel()
             try:

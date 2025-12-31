@@ -481,6 +481,13 @@ class DebateAgent:
 
         return "\n".join(lines)
 
+    async def interrupt(self) -> None:
+        """Interrupt all backends (safe, idempotent)."""
+        if self._claude_backend:
+            await self._claude_backend.interrupt()
+        if self._gemini_backend:
+            await self._gemini_backend.interrupt()
+
     def clear_history(self) -> None:
         """Clear conversation history but keep sessions alive."""
         self.messages.clear()

@@ -380,6 +380,10 @@ class GeminiSessionTmux:
 
         return ParsedResponse(content="⚠️ Timeout")
 
+    def interrupt(self) -> None:
+        """Send Escape to stop generation (no-op if not generating)."""
+        subprocess.run(["tmux", "send-keys", "-t", self.session_name, "Escape"])
+
     def close(self) -> None:
         subprocess.run(["tmux", "send-keys", "-t", self.session_name, "/exit", "Enter"])
         time.sleep(1)

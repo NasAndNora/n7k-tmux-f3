@@ -67,6 +67,11 @@ class TmuxBackend:
             await asyncio.to_thread(self._session.close)
             self._session = None
 
+    async def interrupt(self) -> None:
+        """Interrupt current generation (no-op if not generating)."""
+        if self._session:
+            await asyncio.to_thread(self._session.interrupt)
+
     def _messages_to_prompt(self, messages: list[LLMMessage]) -> str:
         """Convert LLMMessage list to single prompt string."""
         if not messages:
