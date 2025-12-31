@@ -16,10 +16,12 @@ class GeminiSessionTmux:
         self.session_name = session_name
         self._parser = GeminiToolParser()
 
-    def _capture_pane(self, lines: int = 500) -> str:
-        """Capture tmux pane content (plain text, no ANSI)."""
+    def _capture_pane(self, lines: int = 500) -> str | None:
+        """Capture tmux pane content. Returns None if session dead (B59)."""
         cmd = ["tmux", "capture-pane", "-t", self.session_name, "-p", "-S", f"-{lines}"]
         result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            return None
         return result.stdout
 
     def start(self) -> None:
@@ -71,6 +73,9 @@ class GeminiSessionTmux:
                 return "❌ Tmux session dead. Click Restart."
 
             before = self._capture_pane()
+            # B59: Detect dead session (unlikely after has-session check, but safe)
+            if before is None:
+                return "❌ Gemini crashed. Restart TheOne to recover."
             responses_before = before.count("✦") + before.count("✧")
 
             # B49 fix: load-buffer + paste-buffer with -p (bracketed paste) and -r (preserve newlines)
@@ -96,6 +101,9 @@ class GeminiSessionTmux:
                 # TODO B44/B53: Measure polling performance (capture + parse)
                 t_poll_start = time.time()
                 output = self._capture_pane()
+                # B59: Detect dead session during polling
+                if output is None:
+                    return "❌ Gemini crashed. Restart TheOne to recover."
                 t_capture = time.time()
 
                 if on_update:
@@ -137,6 +145,9 @@ class GeminiSessionTmux:
                     ):
                         time.sleep(1)
                         output = self._capture_pane()
+                        # B59: Detect dead session
+                        if output is None:
+                            return "❌ Gemini crashed. Restart TheOne to recover."
                         return self._extract_response(output, responses_before)
 
             return "⚠️ Timeout"
@@ -320,11 +331,21 @@ class GeminiSessionTmux:
         last_output = ""  # B44/B53: Cache to skip parse if buffer unchanged
 
         before = self._capture_pane()
+        # B59: Detect dead session
+        if before is None:
+            return ParsedResponse(
+                content="❌ Gemini crashed. Restart TheOne to recover."
+            )
         responses_before = before.count("✦") + before.count("✧")
 
         while time.time() - start_time < timeout:
             time.sleep(1)
             output = self._capture_pane()
+            # B59: Detect dead session during polling
+            if output is None:
+                return ParsedResponse(
+                    content="❌ Gemini crashed. Restart TheOne to recover."
+                )
 
             if on_update:
                 # B44/B53 fix: Skip parse if buffer unchanged (AI thinking, no new content)
@@ -379,6 +400,17 @@ class GeminiSessionTmux:
                     )
 
         return ParsedResponse(content="⚠️ Timeout")
+
+    def interrupt(self) -> None:
+        """Send Escape to stop generation (no-op if not generating)."""
+        subprocess.run(["tmux", "send-keys", "-t", self.session_name, "Escape"])
+
+    def is_alive(self) -> bool:
+        """B59: Check if tmux session is still running."""
+        result = subprocess.run(
+            ["tmux", "has-session", "-t", self.session_name], capture_output=True
+        )
+        return result.returncode == 0
 
     def close(self) -> None:
         subprocess.run(["tmux", "send-keys", "-t", self.session_name, "/exit", "Enter"])

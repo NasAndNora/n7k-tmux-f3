@@ -67,6 +67,11 @@ class TmuxBackend:
             await asyncio.to_thread(self._session.close)
             self._session = None
 
+    async def interrupt(self) -> None:
+        """Interrupt current generation (no-op if not generating)."""
+        if self._session:
+            await asyncio.to_thread(self._session.interrupt)
+
     def _messages_to_prompt(self, messages: list[LLMMessage]) -> str:
         """Convert LLMMessage list to single prompt string."""
         if not messages:
@@ -193,6 +198,12 @@ class TmuxBackend:
             if msg.content:
                 total += len(msg.content)
         return total // 4
+
+    async def is_alive(self) -> bool:
+        """B59: Check if tmux session is still running."""
+        if self._session is None:
+            return False
+        return await asyncio.to_thread(self._session.is_alive)
 
     async def close(self) -> None:
         """Close the session."""

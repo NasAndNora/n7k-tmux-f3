@@ -62,18 +62,23 @@ class TargetSelector(Static):
 
         pass
 
-    def __init__(self, user_msg: str) -> None:
+    def __init__(self, user_msg: str, disabled_targets: set[str] | None = None) -> None:
         super().__init__(classes="target-selector")
         self._user_msg = user_msg
+        self._disabled_targets = disabled_targets or set()
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="target-selector-buttons"):
             for target in TARGETS:
-                yield Button(
+                btn = Button(
                     f"{target.icon} {target.label}",
                     id=f"btn-{target.id}",
                     classes=f"target-btn {target.css_class}",
                 )
+                # B59: Disable button if backend is dead
+                if target.id in self._disabled_targets:
+                    btn.disabled = True
+                yield btn
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id
@@ -89,4 +94,7 @@ class TargetSelector(Static):
         self.post_message(self.SelectionCancelled())
 
     def _select(self, target: str) -> None:
+        # B59: Ignore selection if target is disabled
+        if target in self._disabled_targets:
+            return
         self.post_message(self.TargetSelected(target, self._user_msg))

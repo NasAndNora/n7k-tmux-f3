@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator
 from datetime import datetime
 import logging
 import re
+import subprocess
 import types
 from typing import TYPE_CHECKING
 
@@ -64,9 +66,32 @@ class DebateAgent:
         self._gemini_parser = GeminiToolParser()
         self._claude_parser = ClaudeToolParser()
 
+    async def _cleanup_orphan_sessions(self) -> None:
+        """B59: Kill orphan tmux sessions from previous crashes."""
+
+        def _cleanup() -> None:
+            result = subprocess.run(
+                ["tmux", "list-sessions", "-F", "#{session_name}"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                for session in result.stdout.strip().split("\n"):
+                    if session and (
+                        session.startswith("claude_") or session.startswith("gemini_")
+                    ):
+                        subprocess.run(
+                            ["tmux", "kill-session", "-t", session], capture_output=True
+                        )
+
+        await asyncio.to_thread(_cleanup)
+
     async def __aenter__(self) -> DebateAgent:
         """Start both tmux sessions. Continue if one fails (F8)."""
         self._backend_errors: dict[str, str] = {}
+
+        # B59: Cleanup orphan sessions from previous crashes (once, before starting)
+        await self._cleanup_orphan_sessions()
 
         # Claude
         try:
@@ -480,6 +505,13 @@ class DebateAgent:
             lines.append(f"Exit: {tool_info.exit_code}")
 
         return "\n".join(lines)
+
+    async def interrupt(self) -> None:
+        """Interrupt all backends (safe, idempotent)."""
+        if self._claude_backend:
+            await self._claude_backend.interrupt()
+        if self._gemini_backend:
+            await self._gemini_backend.interrupt()
 
     def clear_history(self) -> None:
         """Clear conversation history but keep sessions alive."""

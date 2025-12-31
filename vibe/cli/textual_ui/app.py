@@ -76,7 +76,7 @@ class BottomApp(StrEnum):
     Input = auto()
 
 
-class VibeApp(App):
+class VibeApp(App):  # noqa: PLR0904
     ENABLE_COMMAND_PALETTE = False
     CSS_PATH = "app.tcss"
 
@@ -231,6 +231,15 @@ class VibeApp(App):
                 self._handle_user_message(self._initial_prompt), exclusive=False
             )
 
+    async def on_unmount(self) -> None:
+        """B59: Cleanup tmux sessions on app exit."""
+        if self._debate_agent:
+            try:
+                await self._debate_agent.__aexit__(None, None, None)
+            except Exception:
+                pass  # Best-effort cleanup
+            self._debate_agent = None
+
     async def on_chat_input_container_submitted(
         self, event: ChatInputContainer.Submitted
     ) -> None:
@@ -360,6 +369,15 @@ class VibeApp(App):
         if not backend:
             err = self._debate_agent._backend_errors.get(target, "unavailable")
             await self._mount_and_scroll(ErrorMessage(f"{target.capitalize()}: {err}"))
+            return
+
+        # B59: Backup check - session may have died after selector was shown
+        if not await backend.is_alive():
+            await self._mount_and_scroll(
+                ErrorMessage(
+                    f"{target.capitalize()} crashed. Restart TheOne to recover."
+                )
+            )
             return
 
         self._agent_running = True
@@ -721,7 +739,22 @@ class VibeApp(App):
                 except Exception:
                     pass
 
-                selector = TargetSelector(clean_msg)
+                # B59: Check which backends are alive before showing selector
+                disabled_targets: set[str] = set()
+                if self._debate_agent:
+                    if self._debate_agent._claude_backend:
+                        if not await self._debate_agent._claude_backend.is_alive():
+                            disabled_targets.add("claude")
+                    else:
+                        disabled_targets.add("claude")
+
+                    if self._debate_agent._gemini_backend:
+                        if not await self._debate_agent._gemini_backend.is_alive():
+                            disabled_targets.add("gemini")
+                    else:
+                        disabled_targets.add("gemini")
+
+                selector = TargetSelector(clean_msg, disabled_targets=disabled_targets)
                 # Mount above input, not in chat
                 bottom_container = self.query_one("#bottom-app-container")
                 await bottom_container.mount(selector, before=0)
@@ -958,6 +991,10 @@ class VibeApp(App):
                 await self._agent_init_task
             except asyncio.CancelledError:
                 pass
+
+        # B52: Send Escape to tmux sessions before cancelling task
+        if self._debate_agent:
+            await self._debate_agent.interrupt()
 
         if self._agent_task and not self._agent_task.done():
             self._agent_task.cancel()
