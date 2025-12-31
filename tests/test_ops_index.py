@@ -48,7 +48,10 @@ def find_name_in_ast(tree: ast.Module, name: str) -> bool:
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and node.name == name:
             return True
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == name
+        ):
             return True
         if isinstance(node, ast.Assign):
             for target in node.targets:
@@ -84,5 +87,9 @@ def test_index_structure(index_content: str) -> None:
 
 def test_index_minimum_size(index_content: str) -> None:
     """Index must have minimum content."""
-    lines = [l for l in index_content.splitlines() if l.strip() and not l.startswith(("#", "**"))]
+    lines = [
+        l
+        for l in index_content.splitlines()
+        if l.strip() and not l.startswith(("#", "**"))
+    ]
     assert len(lines) >= 50, f"Index too small: {len(lines)} lines - run: uv run ops.py"
